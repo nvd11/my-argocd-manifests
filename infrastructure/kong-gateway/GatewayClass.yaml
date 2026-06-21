@@ -1,0 +1,8 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: kong
+  annotations:
+    konghq.com/gatewayclass-unmanaged: "true" # 告诉 Kong 这是一个 Unmanaged 模式，由 Kong 自动接管
+spec:
+  controllerName: konghq.com/kic-gateway-controller
