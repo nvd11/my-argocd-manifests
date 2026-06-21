@@ -42,7 +42,7 @@ spec:
             - path: /svc1
               pathType: Prefix
   destination:
-    server: 'https://43.139.214.231:6443' # 🎯 定向跨云下发部署到主人的：腾讯云 K3s 物理集群！
+    name: 'tencent-dp1-cluster' # 🎯 极客解耦：使用在 ArgoCD 中注册的集群别名，彻底避免在 Git 图纸中硬编码公网 IP 和端口！
     namespace: default
   syncPolicy:
     automated:
