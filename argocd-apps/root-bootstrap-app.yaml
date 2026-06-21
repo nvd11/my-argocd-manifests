@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root-bootstrap
+  namespace: argocd # 🎯 必须部署在 ArgoCD 所在的命名空间
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/nvd11/my-argocd-manifests.git' # 🎯 精准指向我们带 'argocd' 的全新 CD 配置仓库！
+    targetRevision: HEAD
+    path: argocd-apps # 🎯 盯死该子目录：里面只要增加任何子应用的 yaml，ArgoCD 就会自动把它拉起来！
+  destination:
+    server: 'https://kubernetes.default.svc' # 部署在阿里云 Master 控制面本地
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true      # 自动清理已删除的子 App
+      selfHeal: true   # 自动纠偏，对齐 Git 清单

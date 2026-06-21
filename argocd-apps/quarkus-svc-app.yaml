@@ -1,0 +1,52 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: quarkus-svc
+  namespace: argocd # 🎯 部署在 ArgoCD 控制面所在的命名空间，由其进行调度
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/nvd11/my-shared-helm-charts.git' # 🎯 跨仓库引用我们的公共 Helm 模板仓库！
+    path: charts/generic-web-service # 🎯 引用通用的 Web 服务子文件夹
+    targetRevision: 'v1.0.1' # 🎯 使用我们刚升级完的 v1.0.1 黄金模具！
+    
+    # 🎯 🌟 极简参数注入：完全告别冗长的 K8s 物理 YAML 编写！
+    helm:
+      values: |
+        replicaCount: 1
+        containerPort: 8080 # Quarkus 默认容器端口
+        
+        image:
+          repository: ghcr.io/nvd11/my-quarkus-svc
+          tag: 625ba59193396b76230260c3054dd8387ea8cd09 # 🎯 自动与您的 GitHub Actions CI 产出的镜像 tag 保持对齐
+          pullPolicy: IfNotPresent
+          
+        livenessProbe:
+          path: /svc1 # 临时以我们刚才写好的 API 路径作为健康指标
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          
+        readinessProbe:
+          path: /svc1
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          
+        service:
+          type: ClusterIP
+          port: 80
+          
+        ingress:
+          enabled: true
+          className: kong-k8s # 🎯 完美绑定至腾讯云 K3s 上的 Kong Ingress Gateway！
+          paths:
+            - path: /svc1
+              pathType: Prefix
+  destination:
+    server: 'https://43.139.214.231:6443' # 🎯 定向跨云下发部署到主人的：腾讯云 K3s 物理集群！
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
