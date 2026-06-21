@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: 'https://charts.konghq.com'
-    chart: ingress
+    chart: kong
     targetRevision: 2.38.0
     helm:
       values: |
