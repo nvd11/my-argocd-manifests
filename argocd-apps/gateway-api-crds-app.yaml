@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gateway-api-crds
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1" # 🎯 同步波次 1：最底层的基础设施字典，必须第一个安装
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/kubernetes-sigs/gateway-api.git'
+    targetRevision: v1.1.0 # 使用最新的 Gateway API v1.1.0 标准
+    path: config/crd/standard # 安装标准 CRD
+  destination:
+    name: 'tencent-dp1-cluster'
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true # CRD 往往很大，必须使用 ServerSideApply 避免 Annotation 过长报错

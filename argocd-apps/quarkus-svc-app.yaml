@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: 'https://github.com/nvd11/my-shared-helm-charts.git' # 🎯 跨仓库引用我们的公共 Helm 模板仓库！
     path: charts/generic-web-service # 🎯 引用通用的 Web 服务子文件夹
-    targetRevision: 'v1.0.1' # 🎯 使用我们刚升级完的 v1.0.1 黄金模具！
+    targetRevision: 'v1.1.0' # 🎯 使用支持 Gateway API 的全新 v1.1.0 模具！
     
     # 🎯 🌟 极简参数注入：完全告别冗长的 K8s 物理 YAML 编写！
     helm:
@@ -35,12 +35,10 @@ spec:
           type: ClusterIP
           port: 80
           
-        ingress:
+        route:
           enabled: true
-          className: kong-k8s # 🎯 完美绑定至腾讯云 K3s 上的 Kong Ingress Gateway！
-          paths:
-            - path: /svc1
-              pathType: Prefix
+          parentGateway: kong-main-gateway # 🎯 认领基础设施大门
+          path: /svc1
   destination:
     name: 'tencent-dp1-cluster' # 🎯 极客解耦：使用在 ArgoCD 中注册的集群别名，彻底避免在 Git 图纸中硬编码公网 IP 和端口！
     namespace: default

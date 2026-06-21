@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kong-ingress-controller
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2" # 🎯 同步波次 2：等 CRD 字典安装好后，再安装控制器
+spec:
+  project: default
+  source:
+    repoURL: 'https://charts.konghq.com'
+    chart: ingress
+    targetRevision: 2.38.0
+    helm:
+      values: |
+        ingressController:
+          installCRDs: false # 因为我们已经在波次 1 独立安装了，所以这里设为 false
+        env:
+          database: "off"
+        gateway:
+          # 开启 Kong 的 Gateway API 监听能力
+          enabled: true
+  destination:
+    name: 'tencent-dp1-cluster'
+    namespace: kong-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
