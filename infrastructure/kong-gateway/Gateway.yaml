@@ -1,0 +1,16 @@
+# 这是一个属于基础设施层面的公共大门配置
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: kong-main-gateway
+  namespace: default # 部署在默认命名空间供微服务使用
+spec:
+  gatewayClassName: kong
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    # 🎯 允许同一个命名空间下的应用来贴指路牌
+    allowedRoutes:
+      namespaces:
+        from: Same

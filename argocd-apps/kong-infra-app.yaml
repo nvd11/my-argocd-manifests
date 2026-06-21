@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kong-gateway-infra
+  namespace: argocd # 🎯 部署在阿里云 ArgoCD 所在的命名空间
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/nvd11/my-argocd-manifests.git' # 🎯 就是我们当前的配置仓库
+    targetRevision: HEAD
+    path: infrastructure/kong-gateway # 🎯 专门盯死这个底层基建目录！
+  destination:
+    name: 'tencent-dp1-cluster' # 🎯 空投到腾讯云
+    namespace: default          # 🎯 部署到目标集群的 default 命名空间
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
