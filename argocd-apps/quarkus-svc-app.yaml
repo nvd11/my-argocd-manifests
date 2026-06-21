@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: 'https://github.com/nvd11/my-shared-helm-charts.git' # 🎯 跨仓库引用我们的公共 Helm 模板仓库！
     path: charts/generic-web-service # 🎯 引用通用的 Web 服务子文件夹
-    targetRevision: 'v1.1.0' # 🎯 使用支持 Gateway API 的全新 v1.1.0 模具！
+    targetRevision: 'v1.1.1' # 🎯 使用修复了 Kong 兼容性 bug 的 v1.1.1 稳如老狗模具！
     
     # 🎯 🌟 极简参数注入：完全告别冗长的 K8s 物理 YAML 编写！
     helm:
