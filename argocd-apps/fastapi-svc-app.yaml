@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: 'https://github.com/nvd11/my-shared-helm-charts.git'
     path: charts/generic-web-service
-    targetRevision: 'v1.1.1'
+    targetRevision: 'v1.1.2'
     
     helm:
       values: |
@@ -33,6 +33,8 @@ spec:
         service:
           type: ClusterIP
           port: 80
+          annotations:
+            konghq.com/plugins: rewrite-to-svc1
           
         route:
           enabled: true
