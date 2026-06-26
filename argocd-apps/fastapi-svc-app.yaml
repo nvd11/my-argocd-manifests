@@ -21,12 +21,12 @@ spec:
           pullPolicy: Never # It's built locally on the node in this setup, or we need to update the CI
           
         livenessProbe:
-          path: /
+          path: /svc1
           initialDelaySeconds: 15
           periodSeconds: 20
           
         readinessProbe:
-          path: /
+          path: /svc1
           initialDelaySeconds: 15
           periodSeconds: 20
           
