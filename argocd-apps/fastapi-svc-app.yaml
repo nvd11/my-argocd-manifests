@@ -1,0 +1,49 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fastapi-svc
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/nvd11/my-shared-helm-charts.git'
+    path: charts/generic-web-service
+    targetRevision: 'v1.1.1'
+    
+    helm:
+      values: |
+        replicaCount: 1
+        containerPort: 8000
+        
+        image:
+          repository: my-fastapi-svc
+          tag: v1
+          pullPolicy: Never # It's built locally on the node in this setup, or we need to update the CI
+          
+        livenessProbe:
+          path: /svc2
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          
+        readinessProbe:
+          path: /svc2
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          
+        service:
+          type: ClusterIP
+          port: 80
+          
+        route:
+          enabled: true
+          parentGateway: kong-main-gateway
+          path: /svc2
+  destination:
+    name: 'tencent-dp1-cluster'
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
