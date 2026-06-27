@@ -4,6 +4,10 @@ on:
   repository_dispatch:
     types: [update-image-tag]
 
+concurrency:
+  group: gitops-cd-update
+  cancel-in-progress: false # 💡 false表示排队执行，true表示打断正在运行的前一个任务
+
 permissions:
   contents: write
 
