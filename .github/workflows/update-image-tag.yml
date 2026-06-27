@@ -1,0 +1,35 @@
+name: CD Configuration Update
+
+on:
+  repository_dispatch:
+    types: [update-image-tag]
+
+permissions:
+  contents: write
+
+jobs:
+  update-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Update Image Tag in ArgoCD App Manifest
+        run: |
+          TAG=${{ github.event.client_payload.image_tag }}
+          SVC_NAME=${{ github.event.client_payload.svc_name }}
+          
+          echo "Updating image tag for $SVC_NAME to $TAG"
+          
+          # 动态拼接要修改的文件路径 (e.g. argocd-apps/quarkus-svc-app.yaml)
+          MANIFEST_FILE="argocd-apps/${SVC_NAME}-app.yaml"
+          
+          # 使用 sed 精准替换 ArgoCD Application 清单中的 tag
+          sed -i -E "s/tag: [a-f0-9]+(.*)/tag: ${TAG}\1/g" "$MANIFEST_FILE"
+          
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          git add "$MANIFEST_FILE"
+          git commit -m "ci: auto-update $SVC_NAME image tag to ${TAG} [skip ci]" || echo "No changes to commit"
+          git push
