@@ -18,7 +18,7 @@ spec:
         
         image:
           repository: ghcr.io/nvd11/my-quarkus-svc
-          tag: 2ec8984b5527bc0ad8f51925de6f299f91ff220c # 🎯 自动与您的 GitHub Actions CI 产出的镜像 tag 保持对齐
+          tag: c3510523c1e8fdbf9ff5dd82169a2d5cad017199 # 🎯 自动与您的 GitHub Actions CI 产出的镜像 tag 保持对齐
           pullPolicy: IfNotPresent
           
         livenessProbe:
