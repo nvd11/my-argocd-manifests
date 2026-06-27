@@ -16,25 +16,23 @@ spec:
         containerPort: 8000
         
         image:
-          repository: my-fastapi-svc
+          repository: ghcr.io/nvd11/my-fastapi-svc
           tag: v1
-          pullPolicy: Never # It's built locally on the node in this setup, or we need to update the CI
+          pullPolicy: Always
           
         livenessProbe:
-          path: /svc1
+          path: /
           initialDelaySeconds: 15
           periodSeconds: 20
           
         readinessProbe:
-          path: /svc1
+          path: /
           initialDelaySeconds: 15
           periodSeconds: 20
           
         service:
           type: ClusterIP
           port: 80
-          annotations:
-            konghq.com/plugins: rewrite-to-svc1
           
         route:
           enabled: true
