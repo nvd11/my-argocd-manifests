@@ -17,7 +17,7 @@ spec:
         
         image:
           repository: ghcr.io/nvd11/my-fastapi-svc
-          tag: 0000000000000000000000000000000000000000
+          tag: 9a269392c2fdfc76ed969d5c529edfc4550391b5
           pullPolicy: Always
           
         livenessProbe:
