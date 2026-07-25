@@ -1,9 +1,0 @@
-apiVersion: configuration.konghq.com/v1
-kind: KongPlugin
-metadata:
-  name: rewrite-to-svc1
-  namespace: default
-config:
-  replace:
-    uri: /svc1
-plugin: request-transformer
