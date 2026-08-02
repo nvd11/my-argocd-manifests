@@ -20,6 +20,9 @@ spec:
         gateway:
           # 开启 Kong 的 Gateway API 监听能力
           enabled: true
+        deployment:
+          # DaemonSet 模式: 每个节点 1 个 controller pod, 无需硬编码副本数
+          daemonset: true
   destination:
     name: 'tencent-dp1-cluster'
     namespace: kong-system
