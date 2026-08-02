@@ -17,6 +17,8 @@ spec:
           installCRDs: false # 因为我们已经在波次 1 独立安装了，所以这里设为 false
         env:
           database: "off"
+          # 目标 3: 监听 TCP 6379 (Kong stream 模式)
+          nginx_stream_listen: "[::]:6379"
         gateway:
           # 开启 Kong 的 Gateway API 监听能力
           enabled: true
@@ -26,6 +28,10 @@ spec:
         proxy:
           # 目标 2: 设置外部流量策略为 Local, 避免跨节点路由, 就近访问本节点的 Controller Pod
           externalTrafficPolicy: Local
+          # 目标 3: 开启 TCP stream 转发能力 (透传 TCP, 供 Redis/MySQL 等使用)
+          stream:
+            - containerPort: 6379
+              servicePort: 6379
   destination:
     name: 'tencent-dp1-cluster'
     namespace: kong-system
