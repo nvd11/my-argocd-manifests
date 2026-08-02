@@ -1,3 +1,41 @@
+# ============================================================
+# CD Configuration Update (镜像 Tag 更新机器人)
+#
+# 【这个 workflow 是干什么的】
+#   它只做一件事：把 ArgoCD 清单里某个应用的镜像 tag 改掉，然后 push 回 Git。
+#   部署动作由 ArgoCD 完成（ArgoCD 每 3 分钟轮询 Git，发现 tag 变化后自动部署）。
+#
+# 【四个关键问题】
+#   1. 镜像是 Docker image 吗？
+#      -> 是。应用代码构建出来的 Docker 镜像。
+#   2. 为什么要改 tag？
+#      -> 因为 ArgoCD 部署时按清单里写的 tag 拉镜像。不改 tag，它永远用旧版本。
+#   3. 什么时候触发改 tag？
+#      -> 应用仓库 CI 构建完新镜像后，通过 repository_dispatch API 远程唤醒本 workflow。
+#   4. 改成什么 tag？
+#      -> 新构建的镜像 tag（通常是 git commit 的 SHA）。
+#
+# 【完整链路】
+#   应用仓库 CI (构建镜像)
+#     -> POST /repos/nvd11/my-argocd-manifests/dispatches (携带 svc_name + image_tag)
+#     -> 本 workflow 被唤醒 (repository_dispatch)
+#     -> sed 改 argocd-apps/<svc>-app.yaml 里的 tag
+#     -> commit + push 回 Git
+#     -> ArgoCD 轮询发现 tag 变化 -> 拉新镜像 -> 自动部署
+#
+# 【为什么不用 push 触发？】
+#   push 触发器只监听本仓库的 push，但镜像 tag 更新需求来自【其他仓库】的 CI。
+#   repository_dispatch 是跨仓库的"打电话"机制：
+#   应用 CI 构建完，打一通电话给本仓库"该更新 tag 了"。
+#
+# 【验证】
+#   本 workflow 的运行记录全部是 repository_dispatch 事件触发的，无一例外。
+#   (2026-06-27 的 8 次运行全部 success)
+#
+# 【注意】
+#   Redis 等使用固定官方镜像 (如 redis:7.2-alpine) 的服务【不需要】本 workflow，
+#   它们没有自建镜像要构建，直接改 Manifest push 即可，ArgoCD 会自动轮询部署。
+# ============================================================
 name: CD Configuration Update
 
 on:
