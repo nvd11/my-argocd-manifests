@@ -23,6 +23,9 @@ spec:
         deployment:
           # DaemonSet 模式: 每个节点 1 个 controller pod, 无需硬编码副本数
           daemonset: true
+        proxy:
+          # 目标 2: 设置外部流量策略为 Local, 避免跨节点路由, 就近访问本节点的 Controller Pod
+          externalTrafficPolicy: Local
   destination:
     name: 'tencent-dp1-cluster'
     namespace: kong-system
