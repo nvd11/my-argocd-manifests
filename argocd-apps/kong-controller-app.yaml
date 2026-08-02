@@ -17,8 +17,7 @@ spec:
           installCRDs: false # 因为我们已经在波次 1 独立安装了，所以这里设为 false
         env:
           database: "off"
-          # 目标 3: 监听 TCP 6379 (Kong stream 模式)
-          nginx_stream_listen: "[::]:6379"
+          # 注意: 不要手动加 nginx_stream_listen! proxy.stream 会自动生成 KONG_STREAM_LISTEN
         gateway:
           # 开启 Kong 的 Gateway API 监听能力
           enabled: true
