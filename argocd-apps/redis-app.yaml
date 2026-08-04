@@ -7,6 +7,11 @@ metadata:
     argocd.argoproj.io/sync-wave: "3" # 🎯 同步波次 3：等 Kong 控制器（波次 2）就绪后再部署 Redis
 spec:
   project: default
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      jsonPointers:
+        - /data
   source:
     repoURL: 'https://github.com/nvd11/redis-deployment.git' # 🎯 子应用轮询自己的 repo：redis-deployment/k8s
     path: k8s
