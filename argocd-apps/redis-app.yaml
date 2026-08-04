@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: redis
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3" # 🎯 同步波次 3：等 Kong 控制器（波次 2）就绪后再部署 Redis
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/nvd11/redis-deployment.git' # 🎯 子应用轮询自己的 repo：redis-deployment/k8s
+    path: k8s
+    targetRevision: HEAD
+  destination:
+    name: 'tencent-dp1-cluster' # 🎯 部署到腾讯云 K3s 集群（ArgoCD 在阿里云 master 控制面管理）
+    namespace: redis
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
