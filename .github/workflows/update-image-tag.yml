@@ -32,6 +32,55 @@
 #   本 workflow 的运行记录全部是 repository_dispatch 事件触发的，无一例外。
 #   (2026-06-27 的 8 次运行全部 success)
 #
+# 【本 workflow 接受的参数】
+#   触发事件：repository_dispatch
+#   事件类型：update-image-tag
+#
+#   请求体中的 client_payload 必须包含：
+#
+#   {
+#     "event_type": "update-image-tag",
+#     "client_payload": {
+#       "svc_name": "litellm-svc",
+#       "image_tag": "<git-commit-sha>"
+#     }
+#   }
+#
+#   参数说明：
+#   - svc_name：服务名，用于拼接 ArgoCD Application 清单文件名。
+#     例如 litellm-svc 会定位到 argocd-apps/litellm-svc-app.yaml。
+#   - image_tag：应用 CI 构建并推送到 GHCR 后生成的新镜像 tag，通常使用 Git commit SHA。
+#
+# 【具体修改位置】
+#   本 workflow checkout 的就是当前 Repo：
+#     nvd11/my-argocd-manifests
+#
+#   它不会修改应用源码 Repo，也不会修改 GHCR 中已经推送的镜像。
+#   目标文件由 svc_name 动态决定：
+#     argocd-apps/${svc_name}-app.yaml
+#
+#   例如：
+#     svc_name=litellm-svc
+#     -> nvd11/my-argocd-manifests/argocd-apps/litellm-svc-app.yaml
+#
+#   文件中的 image.tag 字段会从旧值更新为 image_tag；image.repository 不由本 workflow 修改。
+#   例如：
+#     image:
+#       repository: ghcr.io/nvd11/my-litellm-service
+#       tag: <old-sha>
+#
+#   会更新为：
+#     image:
+#       repository: ghcr.io/nvd11/my-litellm-service
+#       tag: <new-sha>
+#
+# 【后续动作】
+#   修改完成后，本 workflow 使用 contents: write 权限执行：
+#     git add -> git commit -> git push
+#
+#   Git commit 推送回 my-argocd-manifests 后，ArgoCD 监控到该 Repo 的清单变化，
+#   再根据更新后的 image.repository + image.tag 拉取并部署新镜像。
+#
 # 【注意】
 #   Redis 等使用固定官方镜像 (如 redis:7.2-alpine) 的服务【不需要】本 workflow，
 #   它们没有自建镜像要构建，直接改 Manifest push 即可，ArgoCD 会自动轮询部署。
