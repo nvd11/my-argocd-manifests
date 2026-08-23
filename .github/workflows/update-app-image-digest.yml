@@ -1,0 +1,47 @@
+name: Update Application Image Digest
+
+on:
+  repository_dispatch:
+    types: [update-app-image-digest]
+
+concurrency:
+  group: gitops-digest-update
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  update-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out manifests
+        uses: actions/checkout@v4
+
+      - name: Update Application digest
+        env:
+          IMAGE_DIGEST: ${{ github.event.client_payload.image_digest }}
+          SVC_NAME: ${{ github.event.client_payload.svc_name }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$SVC_NAME" != "litellm-svc" ]]; then
+            echo "Unsupported service: $SVC_NAME" >&2
+            exit 1
+          fi
+          if [[ ! "$IMAGE_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo "Unexpected digest format: $IMAGE_DIGEST" >&2
+            exit 1
+          fi
+
+          manifest_file="argocd-apps/${SVC_NAME}-app.yaml"
+          test -f "$manifest_file"
+          grep -Eq '^[[:space:]]+digest:[[:space:]]+sha256:[a-f0-9]{64}[[:space:]]*$' "$manifest_file"
+          sed -i -E "s/^([[:space:]]*digest:[[:space:]]*)sha256:[a-f0-9]{64}([[:space:]]*)$/\1${IMAGE_DIGEST}\2/" "$manifest_file"
+
+          git diff -- "$manifest_file"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$manifest_file"
+          git commit -m "ci: update $SVC_NAME image digest to $IMAGE_DIGEST [skip ci]"
+          git push

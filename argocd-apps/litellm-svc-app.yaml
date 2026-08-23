@@ -1,0 +1,93 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: litellm-svc
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nvd11/my-shared-helm-charts.git
+    path: charts/generic-web-service-v2
+    targetRevision: v2.1.0
+    helm:
+      values: |
+        replicaCount: 1
+        containerPort: 4000
+
+        image:
+          repository: ghcr.io/nvd11/my-litellm-svc
+          digest: sha256:60ca0cee8fb09c53d836359fba77c6411249d767c89f9fc3251e068be8247d7b
+          pullPolicy: IfNotPresent
+
+        command:
+          - litellm
+        args:
+          - --config
+          - /app/config/config.yaml
+          - --port
+          - "4000"
+
+        envFrom:
+          - secretRef:
+              name: litellm-secrets
+
+        configMap:
+          enabled: true
+          name: litellm-config
+          data:
+            config.yaml: |
+              model_list:
+                - model_name: gemini-3.6-flash-freelayer
+                  litellm_params:
+                    model: gemini/gemini-3.6-flash
+                    api_key: os.environ/OPENAI_API_KEY_FREE_1
+                - model_name: gemini-3.7-flash-freelayer
+                  litellm_params:
+                    model: gemini/gemini-3.7-flash
+                    api_key: os.environ/OPENAI_API_KEY_FREE_1
+              litellm_settings:
+                cache: true
+                cache_params:
+                  type: redis
+                  host: os.environ/REDIS_HOST
+                  port: os.environ/REDIS_PORT
+                  password: os.environ/REDIS_PASSWORD
+                  supported_call_types: [chat_completion]
+                  ttl: 3600
+
+        volumeMounts:
+          - name: config
+            mountPath: /app/config
+            readOnly: true
+        volumes:
+          - name: config
+            configMap:
+              name: litellm-config
+
+        livenessProbe:
+          path: /health/liveliness
+        readinessProbe:
+          path: /health/readiness
+
+        service:
+          type: ClusterIP
+          port: 4000
+
+        route:
+          enabled: true
+          parentGateway: kong-main-gateway
+          path: /litellm
+          pathType: PathPrefix
+
+        nodeSelector:
+          kubernetes.io/hostname: free-arm-vm
+
+  destination:
+    name: tencent-dp1-cluster
+    namespace: llm-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
