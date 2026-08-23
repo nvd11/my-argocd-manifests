@@ -27,6 +27,16 @@ spec:
           - --port
           - "4000"
 
+        env:
+          - name: REDIS_HOST
+            value: "redis.redis.svc.cluster.local"
+          - name: REDIS_PORT
+            value: "6379"
+          - name: LITELLM_PORT
+            value: "4000"
+          - name: NO_PROXY
+            value: "localhost,127.0.0.1,10.0.0.0/8,.svc,.cluster.local"
+
         envFrom:
           - secretRef:
               name: litellm-secrets
@@ -65,9 +75,13 @@ spec:
               name: litellm-config
 
         livenessProbe:
+          enabled: true
           path: /health/liveliness
+          port: 4000
         readinessProbe:
+          enabled: true
           path: /health/readiness
+          port: 4000
 
         service:
           type: ClusterIP
