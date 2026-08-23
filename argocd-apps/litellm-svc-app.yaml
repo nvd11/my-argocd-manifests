@@ -27,16 +27,6 @@ spec:
           - --port
           - "4000"
 
-        env:
-          - name: REDIS_HOST
-            value: "redis.redis.svc.cluster.local"
-          - name: REDIS_PORT
-            value: "6379"
-          - name: LITELLM_PORT
-            value: "4000"
-          - name: NO_PROXY
-            value: "localhost,127.0.0.1,10.0.0.0/8,.svc,.cluster.local"
-
         envFrom:
           - secretRef:
               name: litellm-secrets
@@ -59,8 +49,8 @@ spec:
                 cache: true
                 cache_params:
                   type: redis
-                  host: os.environ/REDIS_HOST
-                  port: os.environ/REDIS_PORT
+                  host: redis.redis.svc.cluster.local
+                  port: 6379
                   password: os.environ/REDIS_PASSWORD
                   supported_call_types: [chat_completion]
                   ttl: 3600
