@@ -10,7 +10,7 @@ spec:
   - name: http
     port: 80
     protocol: HTTP
-    # 🎯 允许同一个命名空间下的应用来贴指路牌
+    # 🎯 允许所有命名空间下的应用（如 llm-system）来贴指路牌
     allowedRoutes:
       namespaces:
-        from: Same
+        from: All
