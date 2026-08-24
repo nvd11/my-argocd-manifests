@@ -96,6 +96,9 @@ spec:
           pathType: PathPrefix
           annotations:
             konghq.com/strip-path: "true"
+            konghq.com/read-timeout: "180000"
+            konghq.com/write-timeout: "180000"
+            konghq.com/connect-timeout: "60000"
 
         nodeSelector:
           kubernetes.io/hostname: free-arm-vm
