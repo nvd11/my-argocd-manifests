@@ -44,10 +44,32 @@ spec:
                   litellm_params:
                     model: gemini/gemini-3.6-flash
                     api_key: os.environ/OPENAI_API_KEY_FREE_1
+                    rpm: 15
+                - model_name: gemini-3.6-flash-freelayer
+                  litellm_params:
+                    model: gemini/gemini-3.6-flash
+                    api_key: os.environ/OPENAI_API_KEY_FREE_2
+                    rpm: 15
                 - model_name: gemini-3.7-flash-freelayer
                   litellm_params:
                     model: gemini/gemini-3.7-flash
                     api_key: os.environ/OPENAI_API_KEY_FREE_1
+                    rpm: 15
+                - model_name: gemini-3.7-flash-freelayer
+                  litellm_params:
+                    model: gemini/gemini-3.7-flash
+                    api_key: os.environ/OPENAI_API_KEY_FREE_2
+                    rpm: 15
+
+              router_settings:
+                routing_strategy: "least-busy"
+                num_retries: 3
+                retry_after: 5
+                cooldown_time: 30
+                fallbacks:
+                  - gemini-3.6-flash-freelayer: ["gemini-3.7-flash-freelayer"]
+                  - gemini-3.7-flash-freelayer: ["gemini-3.6-flash-freelayer"]
+
               litellm_settings:
                 cache: true
                 cache_params:
@@ -57,6 +79,29 @@ spec:
                   password: os.environ/REDIS_PASSWORD
                   supported_call_types: [chat_completion]
                   ttl: 3600
+
+        externalSecret:
+          enabled: true
+          refreshInterval: 1h
+          secretStoreRef:
+            name: oci-litellm-vault-store
+            kind: SecretStore
+          target:
+            name: litellm-secrets
+            creationPolicy: Owner
+          data:
+            - secretKey: OPENAI_API_KEY_FREE_1
+              remoteRef:
+                key: litellm-openai-api-key-free-1
+            - secretKey: OPENAI_API_KEY_FREE_2
+              remoteRef:
+                key: litellm-openai-api-key-free-2
+            - secretKey: LITELLM_MASTER_KEY
+              remoteRef:
+                key: litellm-master-key
+            - secretKey: REDIS_PASSWORD
+              remoteRef:
+                key: litellm-redis-password
 
         volumeMounts:
           - name: config
