@@ -64,8 +64,8 @@ spec:
               router_settings:
                 routing_strategy: "least-busy"
                 num_retries: 3
-                retry_after: 5
-                cooldown_time: 30
+                allowed_fails: 1
+                cooldown_time: 60
                 fallbacks:
                   - gemini-3.6-flash-freelayer: ["gemini-3.7-flash-freelayer"]
                   - gemini-3.7-flash-freelayer: ["gemini-3.6-flash-freelayer"]
