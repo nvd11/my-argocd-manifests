@@ -50,12 +50,12 @@ spec:
               # ==============================================================================
               model_list:
                 # === 🟢 梯队一：主力日常轮换组 (Key 1 & Key 2 平摊 50/50 负载) ===
-                - model_name: gemini-3.7-flash-freelayer
+                - model_name: gemini-3.7-flash
                   litellm_params:
                     model: gemini/gemini-3.6-flash
                     api_key: os.environ/OPENAI_API_KEY_FREE_1
                     rpm: 15
-                - model_name: gemini-3.7-flash-freelayer
+                - model_name: gemini-3.7-flash
                   litellm_params:
                     model: gemini/gemini-3.6-flash
                     api_key: os.environ/OPENAI_API_KEY_FREE_2
@@ -81,7 +81,7 @@ spec:
                 allowed_fails: 1
                 cooldown_time: 60
                 fallbacks:
-                  - gemini-3.7-flash-freelayer: ["gemini-3.7-pro-plan", "gemini-3.7-backup"]
+                  - gemini-3.7-flash: ["gemini-3.7-pro-plan", "gemini-3.7-backup"]
 
               litellm_settings:
                 cache: true
