@@ -16,7 +16,7 @@ spec:
 
         image:
           repository: ghcr.io/nvd11/my-litellm-svc
-          digest: sha256:a4e0d519de4ee9a1a707500e02006003a498ba05c7bd1d2e2f82ae8846d1064a
+          digest: sha256:60ca0cee8fb09c53d836359fba77c6411249d767c89f9fc3251e068be8247d7b
           pullPolicy: IfNotPresent
 
         command:
@@ -54,29 +54,33 @@ spec:
                   litellm_params:
                     model: gemini/gemini-3.7-flash
                     api_key: os.environ/OPENAI_API_KEY_FREE_1
-                    rpm: 15
+                    rpm: 12
                 - model_name: gemini-3.7-flash
                   litellm_params:
                     model: gemini/gemini-3.7-flash
                     api_key: os.environ/OPENAI_API_KEY_FREE_2
-                    rpm: 15
+                    rpm: 12
 
                 # === 🟡 梯队二：一级应急升舱组 (Pro Plan 专属，主力 429 时触发) ===
                 - model_name: gemini-3.7-pro-plan
                   litellm_params:
                     model: gemini/gemini-3.7-flash
                     api_key: os.environ/OPENAI_API_KEY_PRO_PLAN
-                    rpm: 15
+                    rpm: 12
 
                 # === 🛡️ 梯队三：终极应急保底组 (Key 3 专属，平时 0 流量) ===
                 - model_name: gemini-3.7-backup
                   litellm_params:
                     model: gemini/gemini-3.7-flash
                     api_key: os.environ/OPENAI_API_KEY_FREE_3
-                    rpm: 15
+                    rpm: 12
 
               router_settings:
                 routing_strategy: "least-busy" # 负载均衡：优先选择当前空闲/负载最小的 Key 派发请求
+
+                # 🎯 开启发流前预检（Pre-Call Checks）：在正式建立数据流前，先在 Redis 中检查 Key 的 RPM 与冷却状态，
+                # 若当前 Key 已接近限额，立即在发流前切换至下一个健康 Key，从源头杜绝 Mid-Stream 中途断流！
+                enable_pre_call_checks: true
 
                 # 🎯 充沛重试预算：初始尝试失败后，最多跨 Key / 跨梯队重试 5 次（总共 6 次尝试机会），
                 # 确保能 100% 完整覆盖【主力 Key 1/2 -> Pro Plan 升舱 -> Key 3 终极保底】的所有梯队。
