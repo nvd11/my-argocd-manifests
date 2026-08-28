@@ -16,7 +16,7 @@ spec:
 
         image:
           repository: ghcr.io/nvd11/my-litellm-svc
-          digest: sha256:500557beecff739f5a3ee434c2b8ad3c653db71e2eece816322d378234bc1260
+          digest: sha256:60ca0cee8fb09c53d836359fba77c6411249d767c89f9fc3251e068be8247d7b
           pullPolicy: IfNotPresent
 
         command:
@@ -76,11 +76,22 @@ spec:
                     rpm: 15
 
               router_settings:
-                routing_strategy: "least-busy"
+                routing_strategy: "least-busy" # 负载均衡：优先选择当前空闲/负载最小的 Key 派发请求
+
+                # 🎯 充沛重试预算：初始尝试失败后，最多跨 Key / 跨梯队重试 5 次（总共 6 次尝试机会），
+                # 确保能 100% 完整覆盖【主力 Key 1/2 -> Pro Plan 升舱 -> Key 3 终极保底】的所有梯队。
                 num_retries: 5
+
+                # 🎯 极速熔断触发器：单个 Key 只要连续失败 1 次（如遭遇 429 限流或 5xx 错误），立即判定生病并关禁闭，
+                # 绝不在同一个已报错的 Key 上浪费重试次数，0.01 秒内迅速切换到下一个健康 Key。
                 allowed_fails: 1
+
+                # 🎯 满血禁闭冷却期：故障 Key 在小黑屋中隔离 60 秒（单位：秒）。
+                # 设为 60 秒正好完整错开 Google 免费层的 1 分钟 (15 RPM) 滑动窗口惩罚期，确保解禁归队时 100% 满血复活。
                 cooldown_time: 60
+
                 fallbacks:
+                  # 🎯 梯队级联降级链：主力组 (FREE_1 + FREE_2) -> Pro Plan 升舱 -> Key 3 终极保底
                   - gemini-3.7-flash: ["gemini-3.7-pro-plan", "gemini-3.7-backup"]
 
               litellm_settings:
