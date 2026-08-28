@@ -16,7 +16,7 @@ spec:
 
         image:
           repository: ghcr.io/nvd11/my-litellm-svc
-          digest: sha256:bb3fb6212efdddc76c6a8690ecd0c1da02ffd8b137cb09ff21449aa66c93fe20
+          digest: sha256:60ca0cee8fb09c53d836359fba77c6411249d767c89f9fc3251e068be8247d7b
           pullPolicy: IfNotPresent
 
         command:
@@ -39,17 +39,17 @@ spec:
           data:
             NO_PROXY: "localhost,127.0.0.1,10.0.0.0/8,.svc,.cluster.local"
             config.yaml: |
+              # ==============================================================================
+              # LiteLLM Proxy Model & Multi-Tier Routing Configuration
+              # ==============================================================================
+              # Key 角色与梯队定义说明：
+              # - OPENAI_API_KEY_FREE_1  : 主力老号 1 (主人) - Tier 1 日常轮换
+              # - OPENAI_API_KEY_FREE_2  : 主力老号 2 (师母) - Tier 1 日常轮换
+              # - OPENAI_API_KEY_PRO_PLAN: 主力 Google AI Pro 旗舰号 - Tier 2 一级应急升舱
+              # - OPENAI_API_KEY_FREE_3  : 终极应急保底号 - Tier 3 终极避震保底
+              # ==============================================================================
               model_list:
-                - model_name: gemini-3.6-flash-freelayer
-                  litellm_params:
-                    model: gemini/gemini-3.6-flash
-                    api_key: os.environ/OPENAI_API_KEY_FREE_1
-                    rpm: 15
-                - model_name: gemini-3.6-flash-freelayer
-                  litellm_params:
-                    model: gemini/gemini-3.6-flash
-                    api_key: os.environ/OPENAI_API_KEY_FREE_2
-                    rpm: 15
+                # === 🟢 梯队一：主力日常轮换组 (Key 1 & Key 2 平摊 50/50 负载) ===
                 - model_name: gemini-3.7-flash-freelayer
                   litellm_params:
                     model: gemini/gemini-3.7-flash
@@ -60,11 +60,15 @@ spec:
                     model: gemini/gemini-3.7-flash
                     api_key: os.environ/OPENAI_API_KEY_FREE_2
                     rpm: 15
-                - model_name: gemini-3.6-backup
+
+                # === 🟡 梯队二：一级应急升舱组 (Pro Plan 专属，主力 429 时触发) ===
+                - model_name: gemini-3.7-pro-plan
                   litellm_params:
-                    model: gemini/gemini-3.6-flash
-                    api_key: os.environ/OPENAI_API_KEY_FREE_3
+                    model: gemini/gemini-3.7-flash
+                    api_key: os.environ/OPENAI_API_KEY_PRO_PLAN
                     rpm: 15
+
+                # === 🛡️ 梯队三：终极应急保底组 (Key 3 专属，平时 0 流量) ===
                 - model_name: gemini-3.7-backup
                   litellm_params:
                     model: gemini/gemini-3.7-flash
@@ -77,8 +81,7 @@ spec:
                 allowed_fails: 1
                 cooldown_time: 60
                 fallbacks:
-                  - gemini-3.6-flash-freelayer: ["gemini-3.6-backup", "gemini-3.7-flash-freelayer"]
-                  - gemini-3.7-flash-freelayer: ["gemini-3.7-backup", "gemini-3.6-flash-freelayer"]
+                  - gemini-3.7-flash-freelayer: ["gemini-3.7-pro-plan", "gemini-3.7-backup"]
 
               litellm_settings:
                 cache: true
@@ -109,6 +112,9 @@ spec:
             - secretKey: OPENAI_API_KEY_FREE_3
               remoteRef:
                 key: litellm-openai-api-key-free-3
+            - secretKey: OPENAI_API_KEY_PRO_PLAN
+              remoteRef:
+                key: litellm-openai-api-key-pro-plan
             - secretKey: LITELLM_MASTER_KEY
               remoteRef:
                 key: litellm-master-key
