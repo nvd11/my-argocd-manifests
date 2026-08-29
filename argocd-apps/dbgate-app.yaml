@@ -7,8 +7,8 @@ spec:
   project: default
   source:
     repoURL: 'https://github.com/nvd11/my-shared-helm-charts.git'
-    path: charts/generic-web-service
-    targetRevision: 'v1.1.3'
+    path: charts/generic-web-service-v2
+    targetRevision: 'v2.1.0'
     helm:
       values: |
         replicaCount: 1
@@ -25,6 +25,15 @@ spec:
         env:
           - name: WEB_ROOT
             value: /dbgate
+
+        volumes:
+          - name: dbgate-data
+            persistentVolumeClaim:
+              claimName: dbgate-data
+
+        volumeMounts:
+          - name: dbgate-data
+            mountPath: /root/.dbgate
 
         livenessProbe:
           path: /dbgate/index.html
@@ -43,7 +52,9 @@ spec:
         route:
           enabled: true
           parentGateway: kong-main-gateway
+          parentGatewayNamespace: default
           path: /dbgate
+          pathType: PathPrefix
   destination:
     name: 'tencent-dp1-cluster'
     namespace: default
@@ -53,6 +64,7 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - ServerSideApply=true
   ignoreDifferences:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
