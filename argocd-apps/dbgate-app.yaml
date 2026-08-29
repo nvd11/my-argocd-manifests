@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://github.com/nvd11/my-shared-helm-charts.git
     path: charts/generic-web-service-v2
-    targetRevision: main
+    targetRevision: 'v2.1.0'
     helm:
       values: |
         replicaCount: 1
