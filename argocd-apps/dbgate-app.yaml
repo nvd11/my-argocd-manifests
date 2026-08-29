@@ -1,0 +1,56 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: dbgate
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nvd11/my-shared-helm-charts.git
+    path: charts/generic-web-service-v2
+    targetRevision: main
+    helm:
+      values: |
+        replicaCount: 1
+        containerPort: 3000
+
+        image:
+          repository: dbgate/dbgate
+          tag: latest
+          pullPolicy: IfNotPresent
+
+        nodeSelector:
+          kubernetes.io/hostname: nuc
+
+        livenessProbe:
+          enabled: true
+          path: /
+          initialDelaySeconds: 15
+          periodSeconds: 20
+
+        readinessProbe:
+          enabled: true
+          path: /
+          initialDelaySeconds: 15
+          periodSeconds: 20
+
+        service:
+          type: ClusterIP
+          port: 80
+
+        route:
+          enabled: true
+          parentGateway: kong-main-gateway
+          parentGatewayNamespace: default
+          path: /dbgate
+          pathType: PathPrefix
+
+  destination:
+    name: 'tencent-dp1-cluster'
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
