@@ -22,25 +22,28 @@ spec:
           tag: latest
           pullPolicy: IfNotPresent
 
+        env:
+          - name: WEB_ROOT
+            value: /dbgate
+
         livenessProbe:
-          path: /
+          path: /dbgate/
           initialDelaySeconds: 15
           periodSeconds: 20
 
         readinessProbe:
-          path: /
+          path: /dbgate/
           initialDelaySeconds: 15
           periodSeconds: 20
 
         service:
-          type: NodePort
+          type: ClusterIP
           port: 80
 
         route:
           enabled: true
           parentGateway: kong-main-gateway
           path: /dbgate
-          stripPath: true
   destination:
     name: 'tencent-dp1-cluster'
     namespace: default
