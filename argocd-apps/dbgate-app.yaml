@@ -33,13 +33,14 @@ spec:
           periodSeconds: 20
 
         service:
-          type: ClusterIP
+          type: NodePort
           port: 80
 
         route:
           enabled: true
           parentGateway: kong-main-gateway
           path: /dbgate
+          stripPath: true
   destination:
     name: 'tencent-dp1-cluster'
     namespace: default
@@ -49,7 +50,6 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      - ServerSideApply=true
   ignoreDifferences:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
