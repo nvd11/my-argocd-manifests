@@ -113,15 +113,43 @@ spec:
               - matches:
                   - path: /ui
                   - path: /litellm-asset-prefix
+                  - path: /_next
+                  - path: /fallback
+                  - path: /swagger
+                  - path: /get_favicon
+                  - path: /get_logo_url
+                  - path: /favicon.ico
+              - matches:
+                  - path: /login
+                  - path: /v2
+                  - path: /v3
+                  - path: /auth
+                  - path: /sso
+                  - path: /onboarding
+                  - path: /invitation
+              - matches:
                   - path: /key
                   - path: /user
-              - matches:
-                  - path: /spend
                   - path: /team
                   - path: /customer
-                  - path: /routes
+                  - path: /organization
+                  - path: /project
+                  - path: /spend
+                  - path: /budget
               - matches:
-                  - path: /get_favicon
+                  - path: /models
+                  - path: /model
+                  - path: /model_group
+                  - path: /model_hub
+                  - path: /routes
+                  - path: /global
+                  - path: /config
+                  - path: /settings
+              - matches:
+                  - path: /health
+                  - path: /cache
+                  - path: /alerting
+                  - path: /audit
 
         nodeSelector:
           kubernetes.io/hostname: free-arm-vm
