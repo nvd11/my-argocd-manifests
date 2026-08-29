@@ -19,14 +19,6 @@ spec:
           digest: sha256:ea7b5c564b855a58314cb75e1ecceaa5e0408f82449cf1cc4eacb3d2255ed5f4
           pullPolicy: IfNotPresent
 
-        command:
-          - litellm
-        args:
-          - --config
-          - /app/config/config.yaml
-          - --port
-          - "4000"
-
         envFrom:
           - configMapRef:
               name: litellm-config
@@ -38,75 +30,14 @@ spec:
           name: litellm-config
           data:
             NO_PROXY: "localhost,127.0.0.1,10.0.0.0/8,.svc,.cluster.local"
-            config.yaml: |
-              # ==============================================================================
-              # LiteLLM Proxy Model & Multi-Tier Routing Configuration
-              # ==============================================================================
-              # Key 角色与梯队定义说明：
-              # - OPENAI_API_KEY_FREE_1  : 主力老号 1 (主人) - Tier 1 日常轮换
-              # - OPENAI_API_KEY_FREE_2  : 主力老号 2 (师母) - Tier 1 日常轮换
-              # - OPENAI_API_KEY_PRO_PLAN: 主力 Google AI Pro 旗舰号 - Tier 2 一级应急升舱
-              # - OPENAI_API_KEY_FREE_3  : 终极应急保底号 - Tier 3 终极避震保底
-              # ==============================================================================
-              model_list:
-                # === 🟢 梯队一：主力日常轮换组 (Key 1 & Key 2 平摊 50/50 负载) ===
-                - model_name: gemini-3.7-flash
-                  litellm_params:
-                    model: gemini/gemini-3.7-flash
-                    api_key: os.environ/OPENAI_API_KEY_FREE_1
-                    rpm: 12
-                - model_name: gemini-3.7-flash
-                  litellm_params:
-                    model: gemini/gemini-3.7-flash
-                    api_key: os.environ/OPENAI_API_KEY_FREE_2
-                    rpm: 12
-
-                # === 🟡 梯队二：一级应急升舱组 (Pro Plan 专属，主力 429 时触发) ===
-                - model_name: gemini-3.7-pro-plan
-                  litellm_params:
-                    model: gemini/gemini-3.7-flash
-                    api_key: os.environ/OPENAI_API_KEY_PRO_PLAN
-                    rpm: 12
-
-                # === 🛡️ 梯队三：终极应急保底组 (Key 3 专属，平时 0 流量) ===
-                - model_name: gemini-3.7-backup
-                  litellm_params:
-                    model: gemini/gemini-3.7-flash
-                    api_key: os.environ/OPENAI_API_KEY_FREE_3
-                    rpm: 12
-
-              router_settings:
-                routing_strategy: "least-busy" # 负载均衡：优先选择当前空闲/负载最小的 Key 派发请求
-
-                # 🎯 开启发流前预检（Pre-Call Checks）：在正式建立数据流前，先在 Redis 中检查 Key 的 RPM 与冷却状态，
-                # 若当前 Key 已接近限额，立即在发流前切换至下一个健康 Key，从源头杜绝 Mid-Stream 中途断流！
-                enable_pre_call_checks: true
-
-                # 🎯 充沛重试预算：初始尝试失败后，最多跨 Key / 跨梯队重试 5 次（总共 6 次尝试机会），
-                # 确保能 100% 完整覆盖【主力 Key 1/2 -> Pro Plan 升舱 -> Key 3 终极保底】的所有梯队。
-                num_retries: 5
-
-                # 🎯 极速熔断触发器：单个 Key 只要连续失败 1 次（如遭遇 429 限流或 5xx 错误），立即判定生病并关禁闭，
-                # 绝不在同一个已报错的 Key 上浪费重试次数，0.01 秒内迅速切换到下一个健康 Key。
-                allowed_fails: 1
-
-                # 🎯 满血禁闭冷却期：故障 Key 在小黑屋中隔离 60 秒（单位：秒）。
-                # 设为 60 秒正好完整错开 Google 免费层的 1 分钟 (15 RPM) 滑动窗口惩罚期，确保解禁归队时 100% 满血复活。
-                cooldown_time: 60
-
-                fallbacks:
-                  # 🎯 梯队级联降级链：主力组 (FREE_1 + FREE_2) -> Pro Plan 升舱 -> Key 3 终极保底
-                  - gemini-3.7-flash: ["gemini-3.7-pro-plan", "gemini-3.7-backup"]
-
-              litellm_settings:
-                cache: true
-                cache_params:
-                  type: redis
-                  host: redis.redis.svc.cluster.local
-                  port: 6379
-                  password: os.environ/REDIS_PASSWORD
-                  supported_call_types: [chat_completion]
-                  ttl: 3600
+            REDIS_HOST: "redis.redis.svc.cluster.local"
+            REDIS_PORT: "6379"
+            MYSQL_HOST: "161.118.240.218"
+            MYSQL_PORT: "3306"
+            MYSQL_USER: "litellm_user"
+            MYSQL_DB: "litellm_db"
+            DEFAULT_USD_TO_CNY_RATE: "7.23"
+            LITELLM_PORT: "4000"
 
         externalSecret:
           enabled: true
@@ -130,24 +61,15 @@ spec:
             - secretKey: OPENAI_API_KEY_PRO_PLAN
               remoteRef:
                 key: litellm-openai-api-key-pro-plan
+            - secretKey: A6_API_KEY
+              remoteRef:
+                key: litellm-a6-api-key
             - secretKey: LITELLM_MASTER_KEY
               remoteRef:
                 key: litellm-master-key
             - secretKey: REDIS_PASSWORD
               remoteRef:
                 key: litellm-redis-password
-
-        volumeMounts:
-          - name: config
-            mountPath: /app/config
-            readOnly: true
-        volumes:
-          - name: config
-            configMap:
-              name: litellm-config
-              items:
-                - key: config.yaml
-                  path: config.yaml
 
         livenessProbe:
           enabled: true
