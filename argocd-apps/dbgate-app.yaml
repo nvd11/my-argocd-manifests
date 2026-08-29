@@ -27,12 +27,12 @@ spec:
             value: /dbgate
 
         livenessProbe:
-          path: /dbgate/
+          path: /dbgate/index.html
           initialDelaySeconds: 15
           periodSeconds: 20
 
         readinessProbe:
-          path: /dbgate/
+          path: /dbgate/index.html
           initialDelaySeconds: 15
           periodSeconds: 20
 
