@@ -31,6 +31,10 @@ spec:
           stream:
             - containerPort: 6379
               servicePort: 6379
+        plugins:
+          configMaps:
+            - pluginName: custom-auth
+              name: kong-plugin-custom-auth
   destination:
     name: 'tencent-dp1-cluster'
     namespace: kong-system

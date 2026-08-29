@@ -15,7 +15,7 @@ spec:
         containerPort: 3000
 
         nodeSelector:
-          kubernetes.io/hostname: nuc
+          kubernetes.io/hostname: "nuc"
 
         image:
           repository: dbgate/dbgate
@@ -39,6 +39,8 @@ spec:
         service:
           type: ClusterIP
           port: 80
+          annotations:
+            konghq.com/plugins: dbgate-auth-plugin
 
         route:
           enabled: true
@@ -53,3 +55,10 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+  ignoreDifferences:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      jsonPointers:
+        - /spec/parentRefs/0/group
+        - /spec/parentRefs/0/kind
+        - /status
