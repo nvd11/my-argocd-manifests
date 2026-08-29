@@ -105,6 +105,24 @@ spec:
           annotations:
             konghq.com/strip-path: "true"
 
+        extraRoutes:
+          ui-route:
+            parentGateway: kong-main-gateway
+            parentGatewayNamespace: default
+            rules:
+              - matches:
+                  - path: /ui
+                  - path: /litellm-asset-prefix
+                  - path: /key
+                  - path: /user
+              - matches:
+                  - path: /spend
+                  - path: /team
+                  - path: /customer
+                  - path: /routes
+              - matches:
+                  - path: /get_favicon
+
         nodeSelector:
           kubernetes.io/hostname: free-arm-vm
 
