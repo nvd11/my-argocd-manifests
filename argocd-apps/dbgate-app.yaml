@@ -6,45 +6,40 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/nvd11/my-shared-helm-charts.git
-    path: charts/generic-web-service-v2
-    targetRevision: 'v2.1.0'
+    repoURL: 'https://github.com/nvd11/my-shared-helm-charts.git'
+    path: charts/generic-web-service
+    targetRevision: 'v1.1.3'
     helm:
       values: |
         replicaCount: 1
         containerPort: 3000
+
+        nodeSelector:
+          kubernetes.io/hostname: nuc
 
         image:
           repository: dbgate/dbgate
           tag: latest
           pullPolicy: IfNotPresent
 
-        nodeSelector:
-          kubernetes.io/hostname: nuc
-
         livenessProbe:
-          enabled: true
           path: /
           initialDelaySeconds: 15
           periodSeconds: 20
 
         readinessProbe:
-          enabled: true
           path: /
           initialDelaySeconds: 15
           periodSeconds: 20
 
         service:
-          type: NodePort
-          port: 3000
+          type: ClusterIP
+          port: 80
 
         route:
           enabled: true
           parentGateway: kong-main-gateway
-          parentGatewayNamespace: default
           path: /dbgate
-          pathType: PathPrefix
-
   destination:
     name: 'tencent-dp1-cluster'
     namespace: default
