@@ -35,8 +35,8 @@ spec:
           periodSeconds: 20
 
         service:
-          type: ClusterIP
-          port: 80
+          type: NodePort
+          port: 3000
 
         route:
           enabled: true
@@ -44,8 +44,6 @@ spec:
           parentGatewayNamespace: default
           path: /dbgate
           pathType: PathPrefix
-          annotations:
-            konghq.com/strip-path: true
 
   destination:
     name: 'tencent-dp1-cluster'
