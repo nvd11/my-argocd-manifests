@@ -44,6 +44,8 @@ spec:
           parentGatewayNamespace: default
           path: /dbgate
           pathType: PathPrefix
+          annotations:
+            konghq.com/strip-path: true
 
   destination:
     name: 'tencent-dp1-cluster'
@@ -54,3 +56,4 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - ServerSideApply=true
