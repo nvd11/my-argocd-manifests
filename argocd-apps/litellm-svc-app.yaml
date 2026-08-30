@@ -21,7 +21,7 @@ spec:
 
         env:
           - name: CONTROL_PLANE_DB_PROVIDER
-            value: "cockroachdb-10gb"
+            value: "neon-postgresql"
 
         envFrom:
           - configMapRef:
