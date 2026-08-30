@@ -73,6 +73,9 @@ spec:
             - secretKey: MYSQL_PASSWORD
               remoteRef:
                 key: litellm-mysql-password
+            - secretKey: DATABASE_URL
+              remoteRef:
+                key: litellm-database-url
 
         livenessProbe:
           enabled: true
