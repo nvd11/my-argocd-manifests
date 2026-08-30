@@ -19,6 +19,10 @@ spec:
           digest: sha256:f66831d109a77d8abae8ceb3f4c5db82bf2609c542fceef7d4b97d20e86b226b
           pullPolicy: IfNotPresent
 
+        env:
+          - name: CONTROL_PLANE_DB_PROVIDER
+            value: "cockroachdb-10gb"
+
         envFrom:
           - configMapRef:
               name: litellm-config
