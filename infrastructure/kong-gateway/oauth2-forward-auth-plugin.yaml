@@ -139,3 +139,14 @@ config:
   auth_url: "http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth"
   signin_url: "/oauth2/start"
   timeout: 3000
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: oauth2-forward-auth
+  namespace: llm-system
+plugin: oauth2-forward-auth
+config:
+  auth_url: "http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth"
+  signin_url: "/oauth2/start"
+  timeout: 3000
