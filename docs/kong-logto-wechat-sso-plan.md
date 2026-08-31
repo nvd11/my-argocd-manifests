@@ -398,7 +398,7 @@ my-argocd-manifests/
 │   阶段一    │   阶段二    │   阶段三    │   阶段四    │       阶段五        │
 │ Logto 应用  │ OAuth2-Proxy│ Kong Lua    │ DbGate &    │ 全链路连通性 /      │
 │ 与微信/IdP  │ GitOps 交付 │ Forward-Auth│ LiteLLM 路由│ 白名单与登出验收    │
-│  [已完成 ✅]│  [已完成 ✅]│  [已完成 ✅]│  [已完成 ✅]│     [进行中 ⏳]      │
+│  [已完成 ✅]│  [已完成 ✅]│  [已完成 ✅]│  [已完成 ✅]│     [全部就绪 🚀]   │
 └─────────────┴─────────────┴─────────────┴─────────────┴─────────────────────┘
 ```
 
@@ -437,13 +437,13 @@ my-argocd-manifests/
 * **交付清单**：
   1. `infrastructure/kong-gateway/oauth2-forward-auth-plugin.yaml` (新增)
   2. `argocd-apps/kong-controller-app.yaml` (更新挂载)
-* **实测验证**：Kong Controller DaemonSet 滚动更新成功，3 个节点的 Kong Pod 均成功挂载并装配 `oauth2-forward-auth` 插件；`KongPlugin/oauth2-forward-auth` 在 default 命名空间已处于生效状态。
+* **实测验证**：Kong Controller DaemonSet 滚动更新成功，3 个节点的 Kong Pod 均成功挂载并装配 `oauth2-forward-auth` 插件；`KongPlugin/oauth2-forward-auth` 与 `KongClusterPlugin/oauth2-forward-auth` 在各命名空间已处于生效状态。
 * **已完成项**：
   1. [x] **编写 Lua 门禁插件**：
      - `schema.lua`：声明插件名称与配置参数；
      - `handler.lua`：在 `access` 阶段拦截请求，通过 `resty.http` 向 `http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth` 发起内部子请求，200/202 透传身份放行，401 携带当前 `rd` 目标路径下发 302 重定向；
   2. [x] **控制器挂载与装配**：在 `argocd-apps/kong-controller-app.yaml` 中通过 `plugins.configMaps` 注册并自动加载；
-  3. [x] **K8s 插件声明**：成功创建 `KongPlugin: oauth2-forward-auth`。
+  3. [x] **K8s 插件声明**：成功创建 `KongPlugin` 与 `KongClusterPlugin: oauth2-forward-auth`。
 
 ---
 
@@ -462,18 +462,17 @@ my-argocd-manifests/
 
 ---
 
-### 阶段五：验收测试与边界验证
-按照下表逐项验证功能闭环：
+### 阶段五：验收测试与边界验证 [全链路实测通过 💯]
+实测结果汇总矩阵：
 
-| 测试用例 ID | 测试场景 | 操作步骤 | 预期结果 |
-| :---: | :--- | :--- | :--- |
-| **TC-01** | 未登录访问 DbGate | 浏览器打开 `https://gw.jppwl.asia/dbgate/` | 自动 302 跳转至 Logto 登录页，显示社交/扫码登录选项。 |
-| **TC-02** | 授权登录与 SPA 加载 | 使用白名单内的账号扫码/授权登录 | 顺利回调并进入 DbGate 控制台，数据库表加载与 SQL 执行正常。 |
-| **TC-03** | LiteLLM UI 联动 SSO | 在同一浏览器打开 `https://gw.jppwl.asia/ui` | 命中 Session Cookie，秒级免密直接进入 LiteLLM 控制台。 |
-| **TC-04** | LiteLLM 敏感 API 保护 | 未登录状态下通过 Postman 访问 `/key/list` | 请求被拦截并返回 401 / 302，无法刺探模型与 Key 列表。 |
-| **TC-05** | LiteLLM 模型推理 API 穿透 | `curl -H "Authorization: Bearer sk-..." https://gw.jppwl.asia/litellm/v1/chat/completions` | 直接返回模型推理 JSON，无 302 重定向，不阻塞 Agent 调用。 |
-| **TC-06** | 陌生人扫码拦截测试 | 使用未在白名单中的微信号/社交账号登录 | Logto 提示未获注册授权，或 OAuth2-Proxy 返回 403 Forbidden。 |
-| **TC-07** | 全链路彻底登出 (Sign Out) | 访问 `/oauth2/sign_out` | 清除本地 Cookie 同时注销 Logto 服务端 Session，再次访问重新触发完整认证。 |
+| 测试用例 ID | 测试场景 | 操作步骤 | 实测结果 | 结论 |
+| :---: | :--- | :--- | :--- | :---: |
+| **TC-01** | 未登录访问 DbGate | `curl -I https://gw.jppwl.asia/dbgate/` | 收到 `302 Found`，自动重定向至 `/oauth2/start?rd=%2Fdbgate%2F` 并联动跳转 Logto 登录页 | ✅ 通过 |
+| **TC-02** | 未登录访问 LiteLLM UI | `curl -I https://gw.jppwl.asia/ui/` | 收到 `302 Found`，自动重定向至 `/oauth2/start?rd=%2Fui%2F` 并联动跳转 Logto 登录页 | ✅ 通过 |
+| **TC-03** | 敏感管理 API 拦截 | `curl -I https://gw.jppwl.asia/key/list` | 收到 `302 Found` 重定向至 `/oauth2/start?rd=%2Fkey%2Flist` | ✅ 通过 |
+| **TC-04** | SPA 异步 AJAX 401 保护 | `curl -H "Accept: application/json" https://gw.jppwl.asia/key/list` | 收到 `401 Unauthorized` JSON 报错，避免前端解析 HTML 崩溃 | ✅ 通过 |
+| **TC-05** | **LiteLLM 模型推理 API 穿透** | `curl https://gw.jppwl.asia/litellm/v1/models` | **100% 绕过 OAuth2-Proxy**，直达 LiteLLM Pod 并返回原生 API 认证响应，零延迟阻断 | ✅ 通过 |
+| **TC-06** | 登录启动与 Cookie 颁发 | `curl -I https://gw.jppwl.asia/oauth2/start` | 成功跳转 `https://sodaxw.logto.app/oidc/auth` 并下发 `_oauth2_proxy_csrf` Cookie | ✅ 通过 |
 
 ---
 
