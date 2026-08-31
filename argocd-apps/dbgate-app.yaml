@@ -40,7 +40,7 @@ spec:
           type: ClusterIP
           port: 80
           annotations:
-            konghq.com/plugins: dbgate-auth-plugin
+            konghq.com/plugins: oauth2-forward-auth
 
         route:
           enabled: true
