@@ -35,6 +35,8 @@ spec:
           configMaps:
             - pluginName: custom-auth
               name: kong-plugin-custom-auth
+            - pluginName: oauth2-forward-auth
+              name: kong-plugin-oauth2-forward-auth
   destination:
     name: 'tencent-dp1-cluster'
     namespace: kong-system
