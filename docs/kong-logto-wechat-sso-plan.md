@@ -207,6 +207,46 @@ spec:
           port: 4000
 ```
 
+#### 4.3 微信用户访问控制与白名单准入策略 (RBAC & User Whitelisting)
+
+为了防止任意微信用户扫码即可登入私有管理控制台，必须实施 **“双重锁门机制”**，精准只允许指定少数微信号访问：
+
+```
+                    [ 微信扫码发起登录 ]
+                             │
+                             ▼
+              ┌──────────────────────────────┐
+              │ 【第一道防线】：Logto 注册控制  │
+              │  • 关闭公网自由注册 (Sign-up) │
+              │  • 仅允许预设管理员/绑定用户  │
+              └──────────────┬───────────────┘
+                             │ (通过 IdP 认证)
+                             ▼
+              ┌──────────────────────────────┐
+              │ 【第二道防线】：OAuth2-Proxy  │
+              │  • authenticated_users 白名单 │
+              │  • 非白名单用户 -> 403 拦截   │
+              └──────────────┬───────────────┘
+                             │ (命中允许列表)
+                             ▼
+                 [ 放行访问 DbGate / LiteLLM ]
+```
+
+1. **第一道防线：Logto IdP 端关闭公共注册 (Sign-up Protection)**
+   - 在 Logto 控制台 `Sign-in Experience -> Sign-up` 设置中，**关闭陌生人自动注册 (Disable Public Sign-up)**。
+   - 首次上线由管理员（主人）在 Logto 后台创建对应用户（或在首次授权窗口完成后立即锁闭注册通道），杜绝任何外部未授权微信扫码自动建号。
+2. **第二道防线：OAuth2-Proxy 端声明精确用户白名单 (Zero Trust Whitelist)**
+   - 在 `oauth2-proxy` 的配置清单中，通过 `authenticated_users` 或 `allowed_groups` 严格指定允许通过的 Logto 用户标识（User ID / OpenID）：
+   ```ini
+   # oauth2-proxy.cfg
+   # 🎯 仅允许少数授权的微信号/用户 ID 登录
+   authenticated_users = [
+     "user_jason_master_id",     # 主人微信账号对应 ID
+     "user_renee_admin_id",      # 授权家庭/团队成员 ID
+   ]
+   ```
+   - 任何未在白名单中的微信账号，即使通过了 Logto 登录流程，在经过 OAuth2-Proxy 网关层时也会被立即拦截并返回 `403 Forbidden`，无法触碰任何后端服务。
+
 ### 阶段五：SPA 兼容性、WebSocket 穿透与全链路联调
 1. **DbGate SPA 接口校验**：
    - 验证 DbGate 加载后发起的后台异步请求（如 `/dbgate/server-connections/ping`）携带 Cookie 是否顺畅。
@@ -294,8 +334,9 @@ my-argocd-manifests/
 | **TC-01** | 未登录状态下浏览器打开 `https://<host>/dbgate/` | 页面自动 302 跳转至 Logto 统一登录页，提供微信扫码选项。 |
 | **TC-02** | 微信扫码/授权登录成功 | 页面自动重定向回 `/dbgate/`，DbGate SPA 控制台正常加载，数据表可正常浏览。 |
 | **TC-03** | 跨页面 SSO 连通性测试 | 在同一浏览器中直接打开 `https://<host>/litellm/ui`，无需再次扫码，直接进入 LiteLLM UI。 |
-| **TC-04** | LiteLLM API 接口调用测试 | `curl -H "Authorization: Bearer sk-..." https://<host>/v1/models`，直接返回 JSON 模型列表，无 302 重定向。 |
+| **TC-04** | LiteLLM API 接口调用测试 | `curl -H "Authorization: Bearer *** https://<host>/v1/models`，直接返回 JSON 模型列表，无 302 重定向。 |
 | **TC-05** | 登出 (Sign Out) 测试 | 访问 `/oauth2/sign_out` 后清除 Session Cookie，再次访问受护页面重新触发登录流程。 |
+| **TC-06** | 陌生微信扫码拦截测试 | 使用未授权的微信号扫码，Logto 提示未获注册授权，或 OAuth2-Proxy 返回 403 Forbidden，无法进入后台。 |
 
 ---
 
