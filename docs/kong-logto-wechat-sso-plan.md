@@ -398,7 +398,7 @@ my-argocd-manifests/
 │   阶段一    │   阶段二    │   阶段三    │   阶段四    │       阶段五        │
 │ Logto 应用  │ OAuth2-Proxy│ Kong Lua    │ DbGate &    │ 全链路连通性 /      │
 │ 与微信/IdP  │ GitOps 交付 │ Forward-Auth│ LiteLLM 路由│ 白名单与登出验收    │
-│  [已完成 ✅]│  [已完成 ✅]│   [进行中 ⏳]│   [待进行]  │      [待进行]       │
+│  [已完成 ✅]│  [已完成 ✅]│  [已完成 ✅]│   [待进行]  │      [待进行]       │
 └─────────────┴─────────────┴─────────────┴─────────────┴─────────────────────┘
 ```
 
@@ -433,31 +433,17 @@ my-argocd-manifests/
 
 ---
 
-### 阶段三：Kong Forward-Auth Lua 插件挂载与控制器注册（当前仓库编码）
-* **涉及修改/新增的文件清单**：
-  1. **新建** `infrastructure/kong-gateway/oauth2-forward-auth-plugin.yaml`
-  2. **修改** `argocd-apps/kong-controller-app.yaml`
-* **具体分步实施步骤**：
-  1. **编写 Lua 插件清单 (`infrastructure/kong-gateway/oauth2-forward-auth-plugin.yaml`)**：
-     - **ConfigMap (`kong-plugin-oauth2-forward-auth`)**（`namespace: kong-system`）：
-       - `schema.lua`：定义插件名称 `oauth2-forward-auth`，声明协议与基础配置参数（如 `auth_url`、`signin_url`、`timeout`、`keepalive_timeout`）；
-       - `handler.lua`：
-         - 优先级声明：`PRIORITY = 1001`（确保在代理上游前执行）；
-         - 阶段：`access` 阶段；
-         - 逻辑：提取客户端 Cookie 及 Authorization 请求头，通过 `resty.http` 向 `http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth` 发起内部子请求；
-         - **校验成功 (200/202)**：透传 `X-Auth-Request-User` 等 Header，并将 OAuth2-Proxy 返回的 `Set-Cookie` 塞入 Kong 响应头，放行至目标 Pod；
-         - **未认证 (401)**：拦截请求，构造目标返回地址（`rd=` + `ngx.var.request_uri`），给浏览器下发 `302 Found` 跳转至 `/oauth2/start`；
-     - **KongPlugin (`oauth2-forward-auth`)**（`namespace: default`）：声明在 default 命名空间，供各微服务直接引用。
-  2. **在 Kong Controller 中挂载插件 (`argocd-apps/kong-controller-app.yaml`)**：
-     - 在 `plugins.configMaps` 列表中追加：
-       ```yaml
-       - pluginName: oauth2-forward-auth
-         name: kong-plugin-oauth2-forward-auth
-       ```
-     - 触发 Kong Controller DaemonSet 滚动更新，将新 Lua 插件挂载进所有节点的 Kong Pod。
-  3. **GitOps 提交与验证**：
-     - 提交并推送代码；
-     - 检查 Kong Controller Pod 滚动状态与日志，确认 `oauth2-forward-auth` 插件加载无误。
+### 阶段三：Kong Forward-Auth Lua 插件挂载与控制器注册（当前仓库编码） [已完成 ✅]
+* **交付清单**：
+  1. `infrastructure/kong-gateway/oauth2-forward-auth-plugin.yaml` (新增)
+  2. `argocd-apps/kong-controller-app.yaml` (更新挂载)
+* **实测验证**：Kong Controller DaemonSet 滚动更新成功，3 个节点的 Kong Pod 均成功挂载并装配 `oauth2-forward-auth` 插件；`KongPlugin/oauth2-forward-auth` 在 default 命名空间已处于生效状态。
+* **已完成项**：
+  1. [x] **编写 Lua 门禁插件**：
+     - `schema.lua`：声明插件名称与配置参数；
+     - `handler.lua`：在 `access` 阶段拦截请求，通过 `resty.http` 向 `http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth` 发起内部子请求，200/202 透传身份放行，401 携带当前 `rd` 目标路径下发 302 重定向；
+  2. [x] **控制器挂载与装配**：在 `argocd-apps/kong-controller-app.yaml` 中通过 `plugins.configMaps` 注册并自动加载；
+  3. [x] **K8s 插件声明**：成功创建 `KongPlugin: oauth2-forward-auth`。
 
 ---
 
