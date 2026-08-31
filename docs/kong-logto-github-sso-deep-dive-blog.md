@@ -56,24 +56,24 @@ flowchart TD
     end
 
     %% 浏览器 UI 流量
-    Browser -->|1. 请求 Web 页面| Gateway
-    Gateway -->|2. access 阶段门禁| LuaPlugin
-    LuaPlugin -->|3. 子请求探针 /oauth2/auth| AuthProxy
-    AuthProxy -.->|4a. 未登录 401| LuaPlugin
-    LuaPlugin -.->|4b. 302 Redirect| Logto
-    Logto <-->|5. OAuth 授权| GitHub
-    Logto -->|6. 回调换 Token 下发 Cookie| AuthProxy
-    AuthProxy -.->|7. 已登录 202 放行| LuaPlugin
+    Browser -->|"1. 请求 Web 页面"| Gateway
+    Gateway -->|"2. access 阶段门禁"| LuaPlugin
+    LuaPlugin -->|"3. 子请求探针 /oauth2/auth"| AuthProxy
+    AuthProxy -.->|"4a. 未登录 401"| LuaPlugin
+    LuaPlugin -.->|"4b. 302 Redirect"| Logto
+    Logto <-->|"5. OAuth 授权"| GitHub
+    Logto -->|"6. 回调换 Token 下发 Cookie"| AuthProxy
+    AuthProxy -.->|"7. 已登录 202 放行"| LuaPlugin
     LuaPlugin --> GatewayAPI
 
     %% 路由分流
-    GatewayAPI -->|/dbgate/*| DbGate
-    GatewayAPI -->|/ui, /_next, /key...| LiteLLM_UI
+    GatewayAPI -->|"/dbgate/*"| DbGate
+    GatewayAPI -->|"/ui, /_next, /key..."| LiteLLM_UI
 
     %% API 流量穿透
-    Agent -->|⚡ Direct Bearer Token| Gateway
-    Gateway -->|物理白名单路径 - 绕过 Lua 插件| GatewayAPI
-    GatewayAPI -->|/litellm/v1/* (0ms 额外延迟)| LiteLLM_API
+    Agent -->|"⚡ Direct Bearer Token"| Gateway
+    Gateway -->|"物理白名单路径 - 绕过 Lua 插件"| GatewayAPI
+    GatewayAPI -->|"/litellm/v1/* 直连透传"| LiteLLM_API
 
     classDef k8s fill:#326ce5,stroke:#fff,stroke-width:2px,color:#fff;
     classDef auth fill:#6139F6,stroke:#fff,stroke-width:2px,color:#fff;
@@ -106,14 +106,14 @@ sequenceDiagram
     Kong->>Lua: 执行 access 阶段门禁逻辑
     Lua->>Auth: 内部探针 GET http://oauth2-proxy:4180/oauth2/auth (带 Cookie)
     Auth-->>Lua: 401 Unauthorized (无 Session Cookie)
-    Lua-->>User: 302 Redirect -> /oauth2/start?rd=%2Fdbgate%2F
+    Lua-->>User: 302 Redirect 至 /oauth2/start?rd=%2Fdbgate%2F
     
     %% 2. 授权跳转与登录
     User->>Kong: GET /oauth2/start?rd=/dbgate/
     Kong->>Auth: 路由转发至 OAuth2-Proxy
-    Auth-->>User: 302 Redirect -> Logto OIDC 授权页
-    User->>Logto: 打开登录页面 -> 点击 "Continue with GitHub"
-    Logto-->>User: 302 Redirect -> GitHub 授权页面
+    Auth-->>User: 302 Redirect 至 Logto OIDC 授权页
+    User->>Logto: 打开登录页面 点击 Continue with GitHub
+    Logto-->>User: 302 Redirect 至 GitHub 授权页面
     User->>GitHub: 确认授权登录
     GitHub-->>Logto: 返回授权码 Code
     Logto->>Logto: 匹配/创建用户并签发 ID Token
