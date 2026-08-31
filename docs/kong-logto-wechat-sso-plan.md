@@ -371,17 +371,17 @@ my-argocd-manifests/
 ├── argocd-apps/                                 # ArgoCD 顶层 Application 注册
 │   ├── root-bootstrap-app.yaml                  # 根 App (自动发现并级联同步所有子 App)
 │   ├── kong-infra-app.yaml                      # Kong 网关基础设施 (包含 CRD / Gateway / Plugins)
-│   ├── oauth2-proxy-app.yaml                    # 🌟 [本仓库新增 1] OAuth2-Proxy 服务注册 (通用 Helm Chart)
-│   ├── dbgate-app.yaml                          # 🌟 [本仓库修改 3] values 注入 oauth2-forward-auth 插件注解
-│   └── litellm-svc-app.yaml                     # 🌟 [本仓库修改 4] extraRoutes.ui-route 注入 oauth2 插件注解
+│   ├── kong-controller-app.yaml                 # 🌟 [阶段三修改 2] 在 plugins.configMaps 中注册 oauth2-forward-auth 插件
+│   ├── oauth2-proxy-app.yaml                    # 🌟 [阶段二新增 1 · 已部署 ✅] OAuth2-Proxy 服务注册
+│   ├── dbgate-app.yaml                          # 🌟 [阶段四修改 3] values 注入 oauth2-forward-auth 插件注解
+│   └── litellm-svc-app.yaml                     # 🌟 [阶段四修改 4] extraRoutes.ui-route 注入 oauth2 插件注解
 │
 ├── infrastructure/                              # 基础网关与身份基建
 │   └── kong-gateway/
 │       ├── Gateway.yaml                         # 网关主入口
 │       ├── GatewayClass.yaml
 │       ├── custom-auth-plugin.yaml              # 旧版 Basic-Auth 插件 (保留作为对照/回退)
-│       └── plugins/
-│           └── oauth2-forward-auth-plugin.yaml  # 🌟 [本仓库新增 2] 自定义 Lua Forward-Auth KongPlugin
+│       └── oauth2-forward-auth-plugin.yaml      # 🌟 [阶段三新增 1] 自定义 Lua Forward-Auth (ConfigMap + KongPlugin)
 │
 └── docs/                                        # 架构与方案文档
     └── kong-logto-wechat-sso-plan.md            # 本架构与实施规划文档
@@ -398,7 +398,7 @@ my-argocd-manifests/
 │   阶段一    │   阶段二    │   阶段三    │   阶段四    │       阶段五        │
 │ Logto 应用  │ OAuth2-Proxy│ Kong Lua    │ DbGate &    │ 全链路连通性 /      │
 │ 与微信/IdP  │ GitOps 交付 │ Forward-Auth│ LiteLLM 路由│ 白名单与登出验收    │
-│  [已完成 ✅]│  [已完成 ✅]│   [待进行]  │   [待进行]  │      [待进行]       │
+│  [已完成 ✅]│  [已完成 ✅]│   [进行中 ⏳]│   [待进行]  │      [待进行]       │
 └─────────────┴─────────────┴─────────────┴─────────────┴─────────────────────┘
 ```
 
@@ -418,43 +418,61 @@ my-argocd-manifests/
 
 ### 阶段二：OAuth2-Proxy GitOps 声明式部署（当前仓库编码） [已完成 ✅]
 * **交付清单**：`argocd-apps/oauth2-proxy-app.yaml`
+* **实测验证**：已推送到 GitOps 仓库并由 ArgoCD 自动部署至 `tencent-dp1-cluster`；
 * **已完成项**：
   1. [x] **通用 Helm Chart 编排**：基于 `charts/generic-web-service` (v1.1.3)，声明部署至 `tencent-dp1-cluster` 的 `default` 命名空间；
   2. [x] **节点调度锁死 (Node Affinity)**：首选第一版本通过 `nodeSelector: { kubernetes.io/hostname: "vm-0-2-debian" }` 将 Pod 精准钉在腾讯云主节点（与腾讯云 Kong 节点同机），享受极致的本地环回通信性能与稳定性；
-  3. [x] **镜像与探活配置**：采用稳定镜像 `quay.io/oauth2-proxy/oauth2-proxy:v7.8.1`，健康检查探活端点指向 `/ping`；
+  3. [x] **镜像与探活配置**：采用稳定镜像 `quay.io/oauth2-proxy/oauth2-proxy:v7.8.1`，健康检查探活端点指向 `/ping`，Pod 处于 1/1 Ready 状态；
   4. [x] **身份源与避坑环境变量注入**：
      - 绑定 Logto Japan Discovery URL 与 Client ID/Secret；
      - 生成并注入 32 字节高强度 Cookie Secret (`_oauth2_proxy`)；
      - 启用 `user_id_claim="sub"` 与 `oidc_email_claim="sub"` 消除微信无邮箱报错；
      - 设置 `cookie_domains=".jppwl.asia"` 支持泛域名跨应用 SSO；
      - 配置 `signout_url` 联动 Logto `/oidc/session/end` 端点；
-  5. [x] **开放公网回调路由**：通过 Gateway API 绑定 `kong-main-gateway`，对外暴露 `/oauth2` 免拦截访问端点。
+  5. [x] **开放公网回调路由并实测**：通过 Gateway API 绑定 `kong-main-gateway`，对外暴露 `/oauth2` 端点，实测 `curl -I https://gw.jppwl.asia/oauth2/start` 成功返回 302 重定向至 Logto 认证页并下发 Cookie。
 
 ---
 
-### 阶段三：Kong Forward-Auth Lua 插件挂载（当前仓库编码）
-* **目标文件**：`infrastructure/kong-gateway/plugins/oauth2-forward-auth-plugin.yaml`
-* **具体编码步骤**：
-  1. **编写 Lua 门禁脚本 (handler.lua & schema.lua)**：
-     - 在 `access` 阶段拦截受护请求；
-     - 提取请求中的 Cookie 及 Authorization 头；
-     - 利用 `lua-resty-http` 向 `http://oauth2-proxy:4180/oauth2/auth` 发起内部 HEAD/GET 子请求；
-     - **校验通过 (200/202)**：提取 `X-Auth-Request-User`、`Set-Cookie` 并放行至后端 Pod；
-     - **未认证 (401)**：拦截并立即构造 `302 Redirect` 跳转至 `/oauth2/start?rd=` + `ngx.var.request_uri`；
-  2. **声明 K8s 资源**：封装为 `ConfigMap (kong-plugin-oauth2-forward-auth)` 并创建 `KongPlugin (oauth2-forward-auth)`；
-  3. **纳入 Kong 基础设施同步**：确保 `kong-infra-app.yaml` 会自动递归应用此插件清单。
+### 阶段三：Kong Forward-Auth Lua 插件挂载与控制器注册（当前仓库编码）
+* **涉及修改/新增的文件清单**：
+  1. **新建** `infrastructure/kong-gateway/oauth2-forward-auth-plugin.yaml`
+  2. **修改** `argocd-apps/kong-controller-app.yaml`
+* **具体分步实施步骤**：
+  1. **编写 Lua 插件清单 (`infrastructure/kong-gateway/oauth2-forward-auth-plugin.yaml`)**：
+     - **ConfigMap (`kong-plugin-oauth2-forward-auth`)**（`namespace: kong-system`）：
+       - `schema.lua`：定义插件名称 `oauth2-forward-auth`，声明协议与基础配置参数（如 `auth_url`、`signin_url`、`timeout`、`keepalive_timeout`）；
+       - `handler.lua`：
+         - 优先级声明：`PRIORITY = 1001`（确保在代理上游前执行）；
+         - 阶段：`access` 阶段；
+         - 逻辑：提取客户端 Cookie 及 Authorization 请求头，通过 `resty.http` 向 `http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth` 发起内部子请求；
+         - **校验成功 (200/202)**：透传 `X-Auth-Request-User` 等 Header，并将 OAuth2-Proxy 返回的 `Set-Cookie` 塞入 Kong 响应头，放行至目标 Pod；
+         - **未认证 (401)**：拦截请求，构造目标返回地址（`rd=` + `ngx.var.request_uri`），给浏览器下发 `302 Found` 跳转至 `/oauth2/start`；
+     - **KongPlugin (`oauth2-forward-auth`)**（`namespace: default`）：声明在 default 命名空间，供各微服务直接引用。
+  2. **在 Kong Controller 中挂载插件 (`argocd-apps/kong-controller-app.yaml`)**：
+     - 在 `plugins.configMaps` 列表中追加：
+       ```yaml
+       - pluginName: oauth2-forward-auth
+         name: kong-plugin-oauth2-forward-auth
+       ```
+     - 触发 Kong Controller DaemonSet 滚动更新，将新 Lua 插件挂载进所有节点的 Kong Pod。
+  3. **GitOps 提交与验证**：
+     - 提交并推送代码；
+     - 检查 Kong Controller Pod 滚动状态与日志，确认 `oauth2-forward-auth` 插件加载无误。
 
 ---
 
-### 阶段四：DbGate 与 LiteLLM 接入（当前仓库编码）
-* **具体编码步骤**：
+### 阶段四：DbGate 与 LiteLLM 接入与上线（当前仓库编码）
+* **涉及修改的文件清单**：
+  1. **修改** `argocd-apps/dbgate-app.yaml`
+  2. **修改** `argocd-apps/litellm-svc-app.yaml`
+* **具体分步实施步骤**：
   1. **更新 DbGate (`argocd-apps/dbgate-app.yaml`)**：
      - 将 `service.annotations["konghq.com/plugins"]` 由 `dbgate-auth-plugin` 切换为 `oauth2-forward-auth`；
   2. **更新 LiteLLM (`argocd-apps/litellm-svc-app.yaml`)**：
      - 在 `extraRoutes.ui-route.annotations` 中挂载 `konghq.com/plugins: oauth2-forward-auth`；
-     - 确认主推理路由 `route.path: /litellm` 不带认证插件，保证 API 穿透；
-  3. **Git 提交与推送**：
-     - 执行 `git add`、`git commit` 并推送到 `main` 分支，触发 ArgoCD 自动同步生效。
+     - 保持主推理路由 `route.path: /litellm` 不挂载任何认证插件，保证 API 穿透；
+  3. **GitOps 提交与上线同步**：
+     - 推送至 `main` 分支，ArgoCD 自动应用更新。
 
 ---
 
