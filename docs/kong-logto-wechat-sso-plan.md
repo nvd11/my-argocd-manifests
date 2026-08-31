@@ -398,7 +398,7 @@ my-argocd-manifests/
 │   阶段一    │   阶段二    │   阶段三    │   阶段四    │       阶段五        │
 │ Logto 应用  │ OAuth2-Proxy│ Kong Lua    │ DbGate &    │ 全链路连通性 /      │
 │ 与微信/IdP  │ GitOps 交付 │ Forward-Auth│ LiteLLM 路由│ 白名单与登出验收    │
-│  [已完成 ✅]│  [已完成 ✅]│  [已完成 ✅]│   [待进行]  │      [待进行]       │
+│  [已完成 ✅]│  [已完成 ✅]│  [已完成 ✅]│  [已完成 ✅]│     [进行中 ⏳]      │
 └─────────────┴─────────────┴─────────────┴─────────────┴─────────────────────┘
 ```
 
@@ -447,17 +447,17 @@ my-argocd-manifests/
 
 ---
 
-### 阶段四：DbGate 与 LiteLLM 接入与上线（当前仓库编码）
-* **涉及修改的文件清单**：
-  1. **修改** `argocd-apps/dbgate-app.yaml`
-  2. **修改** `argocd-apps/litellm-svc-app.yaml`
-* **具体分步实施步骤**：
-  1. **更新 DbGate (`argocd-apps/dbgate-app.yaml`)**：
+### 阶段四：DbGate 与 LiteLLM 接入与上线（当前仓库编码） [已完成 ✅]
+* **交付清单**：
+  1. `argocd-apps/dbgate-app.yaml` (切换插件)
+  2. `argocd-apps/litellm-svc-app.yaml` (UI 路由挂载插件)
+* **已完成项**：
+  1. [x] **更新 DbGate (`argocd-apps/dbgate-app.yaml`)**：
      - 将 `service.annotations["konghq.com/plugins"]` 由 `dbgate-auth-plugin` 切换为 `oauth2-forward-auth`；
-  2. **更新 LiteLLM (`argocd-apps/litellm-svc-app.yaml`)**：
+  2. [x] **更新 LiteLLM (`argocd-apps/litellm-svc-app.yaml`)**：
      - 在 `extraRoutes.ui-route.annotations` 中挂载 `konghq.com/plugins: oauth2-forward-auth`；
      - 保持主推理路由 `route.path: /litellm` 不挂载任何认证插件，保证 API 穿透；
-  3. **GitOps 提交与上线同步**：
+  3. [x] **GitOps 提交与上线同步**：
      - 推送至 `main` 分支，ArgoCD 自动应用更新。
 
 ---

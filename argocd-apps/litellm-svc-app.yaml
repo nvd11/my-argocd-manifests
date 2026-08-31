@@ -116,6 +116,8 @@ spec:
           ui-route:
             parentGateway: kong-main-gateway
             parentGatewayNamespace: default
+            annotations:
+              konghq.com/plugins: oauth2-forward-auth
             rules:
               - matches:
                   - path: /ui
