@@ -71,6 +71,8 @@ spec:
               value: "https://minio.jppwl.asia/oauth_callback"
             - name: MINIO_IDENTITY_OPENID_DISPLAY_NAME
               value: "Logto / GitHub SSO"
+            - name: MINIO_IDENTITY_OPENID_ROLE_POLICY
+              value: "consoleAdmin"
           ports:
             - name: s3-api
               containerPort: 9000
