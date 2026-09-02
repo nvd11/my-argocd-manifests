@@ -1,285 +1,285 @@
-# 技术方案与实施计划：Kong Gateway 集成 Logto OAuth2 + 微信登录统一安全访问控制 (SSO)
+# Technical Specification and Implementation Plan: Kong Gateway Logto OAuth2 + WeChat SSO Integration
 
-- **文档版本**：v2.0.0 (架构评审升级版 · 基于 Celia 评审建议全面重构)
-- **更新时间**：2026-08-31
-- **适用节点**：Tencent3 (腾讯云 K3s / Kong Gateway 节点 `tencent-dp1-cluster`)
-- **目标受护服务**：DbGate 控制台、LiteLLM UI (Web 管理端及管理 API) 及 LiteLLM API (OpenAI 兼容直连)
-- **交付仓库**：`https://github.com/nvd11/my-argocd-manifests`
+- **Document Version**: v2.0.0 (Architecture Review Edition, restructured based on review feedback)
+- **Last Updated**: 2026-08-31
+- **Target Node**: Tencent3 (Tencent Cloud K3s / Kong Gateway node `tencent-dp1-cluster`)
+- **Target Protected Services**: DbGate console, LiteLLM Web UI (management console and admin APIs), and LiteLLM API (OpenAI-compatible direct inference)
+- **Delivery Repository**: `https://github.com/nvd11/my-argocd-manifests`
 
 ---
 
-## 1. 方案背景与架构目标
+## 1. Background and Architecture Goals
 
-### 1.1 现状与核心痛点
-1. **认证碎片化与单点控制风险**：目前集群内暴露的控制台服务（DbGate、LiteLLM Web UI）依赖各自内置账密或基础 Basic-Auth，缺乏统一的身份管理源（IdP）、集中的会话生命周期管控与跨服务单点登录（SSO）能力。
-2. **移动端与微信登录诉求**：日常运维与模型管理需要便捷的单点登录体验，期望支持微信扫码直接登录，免去频繁输入复杂账密的痛点。
-3. **混合流量冲突与安全暴露面**：
-   - LiteLLM 既承载供管理员配置的 Web UI（基于 Next.js 开发，包含大量前端静态资源与后台管理 API），又承载供外部 Agent/脚本通过 `Bearer sk-...` 调用的 LLM 推理接口；
-   - 若直接对整个 Service 开启全局 OAuth2 拦截，会导致所有自动化 API 客户端因 `302 Found` 重定向而异常瘫痪；
-   - 若保护范围过窄（仅匹配 `/ui`），会导致前端静态资源（`/_next/*`）及敏感管理接口（`/key/*`、`/user/*`、`/spend/*` 等）裸露在无鉴权公网下。
+### 1.1 Current State and Core Issues
+1. **Fragmented authentication and single-point risk**: Services currently exposed in the cluster (DbGate, LiteLLM Web UI) rely on their own built-in credentials or basic auth. There is no centralized Identity Provider (IdP), no unified session lifecycle management, and no cross-service Single Sign-On (SSO).
+2. **Mobile and WeChat login requirements**: Daily operations and model management need a convenient SSO flow, ideally supporting WeChat QR code scanning to avoid repeated manual password entry.
+3. **Mixed traffic conflicts and security exposure**:
+   - LiteLLM serves both a Next.js-based Web UI (frontend static assets and admin management APIs) and high-frequency LLM inference endpoints called by external agents and scripts via `Bearer sk-...`.
+   - If we apply global OAuth2 interception across the entire Service, automated API clients receive `302 Found` redirects to an HTML login page, breaking automated workflows.
+   - If protection is too narrow (matching only `/ui`), static assets (`/_next/*`) and administrative endpoints (`/key/*`, `/user/*`, `/spend/*`, etc.) remain exposed to the public internet without authentication.
 
-### 1.2 架构设计目标
-1. **统一单点登录 (SSO) 与会话闭环**：以 **Logto** 作为集群核心 OIDC Identity Provider (IdP)，集成微信连接器（及 GitHub/Google/邮箱备用通道），统一纳管用户身份，并支持 OIDC End-Session 全链路登出闭环。
-2. **Kong OSS 社区版原生 Forward-Auth**：针对开源版 Kong Gateway（KIC）不识别 Nginx `external-auth` 注解且无官方 Enterprise 插件的现状，基于成熟的 Lua Subrequest / 反代机制实现与 **OAuth2-Proxy** 的无缝鉴权联动。
-3. **微服务与自动化流量精准分流 (Zero Trust)**：
-   - **控制台与管理端 (Web UI & Admin APIs)**：强制走 OAuth2 认证与微信/社交扫码登录，下发加密 Session Cookie 并做白名单过滤；
-   - **推理/Agent 流量 (LLM API)**：独立路径（`/litellm/v1/*`）仅校验 `Bearer sk-...` 虚拟 Key，免除 OAuth2 拦截。
-4. **纯声明式 GitOps 交付**：全面对齐仓库现有的 `my-shared-helm-charts` (Helm Application-of-Applications) 模式，所有清单统一收拢在 `argocd-apps/` 与 `infrastructure/` 中，零裸部署、零配置分裂。
+### 1.2 Architectural Goals
+1. **Unified SSO and session lifecycle**: Use **Logto** as the primary OIDC Identity Provider (IdP), integrating WeChat (plus GitHub, Google, and email passcode fallback channels). Support OIDC End-Session logout to cleanly invalidate sessions.
+2. **Native Forward-Auth on Kong OSS**: Kong Ingress Controller (OSS) does not support the Nginx `external-auth` annotation, and official enterprise plugins are unavailable. We implement forward authentication using a lightweight Lua subrequest handler against **OAuth2-Proxy**.
+3. **Zero Trust traffic split**:
+   - **Console and Admin Plane (Web UI & Admin APIs)**: Enforce OAuth2 authentication via WeChat/social login, set encrypted session cookies, and filter users against an allowlist.
+   - **Inference/Agent Plane (LLM API)**: Routed via `/litellm/v1/*`, authenticated solely by `Bearer sk-...` virtual keys, completely bypassing OAuth2 interception.
+4. **Pure declarative GitOps delivery**: Align with the repository's `my-shared-helm-charts` (Application-of-Applications) pattern. Keep all manifests in `argocd-apps/` and `infrastructure/` with zero manual cluster mutations.
 
-### 1.3 核心协议与概念辨析 (OAuth 2.0 vs OIDC vs Forward-Auth)
+### 1.3 Protocol Concepts (OAuth 2.0 vs OIDC vs Forward-Auth)
 
-为了统一团队技术认知并杜绝术语混淆，在此对方案中涉及的底层协议与组件职责做系统性阐述：
+To establish a clear baseline across the system:
 
-#### 1. OAuth 2.0 与 OIDC 的本质区别 (AuthZ vs AuthN)
+#### 1. OAuth 2.0 vs OIDC (AuthZ vs AuthN)
 
-* **OAuth 2.0 负责【授权 (AuthZ - Authorization)】——“你能干什么 / 拥有什么权限”**：
-  - *形象比喻*：类似于**酒店房卡**或**代客泊车钥匙**。门锁只校验房卡是否有开门的权限，**并不关心持卡人到底是谁、叫什么名字**；
-  - *核心产物*：颁发 `access_token` 与 `refresh_token`，用于受保护 API 的访问控制。
-* **OIDC (OpenID Connect) 负责【认证 (AuthN - Authentication)】——“你是谁 / 证明你的身份”**：
-  - *形象比喻*：类似于**带有防伪芯片的居民身份证**。上面明明白白印着个人唯一标识；
-  - *核心产物*：在 OAuth 2.0 基础之上标准化了 **`id_token` (JWT 格式的电子身份证)**，内含 `sub` (用户唯一ID)、`email`、`name` 等标准 Claims；
-  - *协同关系*：**`OIDC = OAuth 2.0 (授权通信管道) + 身份认证层 (ID Token)`**。在单点登录 (SSO) 与网页扫码场景中，两者必须合体配合使用。
+* **OAuth 2.0 handles Authorization (AuthZ) — "What can you access?"**:
+  - Analogy: A hotel keycard or valet key. The door lock verifies the card has permission to open the door, without needing to know who holds the card.
+  - Core artifact: Issues `access_token` and `refresh_token` for protected API access control.
+* **OIDC (OpenID Connect) handles Authentication (AuthN) — "Who are you?"**:
+  - Analogy: A verified national ID card containing your unique identifier.
+  - Core artifact: Extends OAuth 2.0 with a standardized **`id_token` (JWT format identity payload)** containing claims like `sub` (unique user ID), `email`, and `name`.
+  - Relationship: **`OIDC = OAuth 2.0 (transport & authorization) + Identity Layer (ID Token)`**. SSO and web logins require both working together.
 
-| 对比维度 | OAuth 2.0 | OIDC (OpenID Connect) |
+| Comparison Dimension | OAuth 2.0 | OIDC (OpenID Connect) |
 | :--- | :--- | :--- |
-| **核心领域** | **`AuthZ` (Authorization - 授权)** | **`AuthN` (Authentication - 身份认证)** |
-| **解答的核心问题** | “这个客户端能代表用户读写哪些数据？” | “当前操作的用户是谁？唯一 ID 是什么？” |
-| **核心凭据** | `access_token` (无固定格式要求) | `id_token` (标准 JWT 身份证) + `access_token` |
-| **在本项目的作用** | 承载浏览器重定向、微信扫码与 Code 交换管道 | 颁发带有 `sub` 标识的身份凭证，驱动白名单匹配 |
+| **Core Domain** | **`AuthZ` (Authorization)** | **`AuthN` (Authentication)** |
+| **Core Question** | "What data can this client access on the user's behalf?" | "Who is the user, and what is their unique ID?" |
+| **Primary Token** | `access_token` (opaque or structured) | `id_token` (standard JWT) + `access_token` |
+| **Role in This Project** | Handles browser redirects, QR flows, and token exchange | Issues tokens with `sub` claims to drive allowlist matching |
 
-#### 2. Logto 与 OAuth2-Proxy 为何两者皆是 (Both)？
+#### 2. Dual Roles of Logto and OAuth2-Proxy
 
-在我们的架构中，**Logto 和 OAuth2-Proxy 两者同时兼具 OAuth 2.0 与 OIDC 的双重角色**：
+In this design, both Logto and OAuth2-Proxy play complementary OAuth 2.0 and OIDC roles:
 
-* **Logto (Both)**：
-  - **既是 OAuth 2.0 Authorization Server**：负责管理 API 资源、处理前端授权码跳转与 Code 交换；
-  - **更是 OIDC Identity Provider (IdP)**：提供标准 Discovery (`/.well-known/openid-configuration`)，签发包含微信身份信息的 `id_token`，提供 UserInfo 与登出端点。
-* **OAuth2-Proxy (Both)**：
-  - **既是 OAuth 2.0 Client**：负责接收 `/oauth2/callback` 并在后台用 Client Secret 换取令牌；
-  - **更是 OIDC Relying Party (RP)**：负责解密校验 `id_token`，提取 `sub` Claim 核对管理员白名单。
+* **Logto**:
+  - **OAuth 2.0 Authorization Server**: Manages API resources, authorization code flows, and code exchanges.
+  - **OIDC Identity Provider (IdP)**: Provides standard discovery (`/.well-known/openid-configuration`), signs `id_token` payloads with WeChat identity info, and handles UserInfo and session termination endpoints.
+* **OAuth2-Proxy**:
+  - **OAuth 2.0 Client**: Receives `/oauth2/callback` and exchanges the authorization code using its Client Secret.
+  - **OIDC Relying Party (RP)**: Decrypts and validates the `id_token`, extracting the `sub` claim to verify against the admin allowlist.
 
-#### 3. 什么是 Forward-Auth (前置鉴权代理)？
+#### 3. What is Forward-Auth?
 
-**Forward-Auth 是网关（Kong）与鉴权服务（OAuth2-Proxy）之间的一种“轻量问询协议”**：
-- **后端服务零侵入**：DbGate 和 LiteLLM 本身完全不需要改造代码去对接微信或 Logto；
-- **带上凭据去问 (Subrequest)**：当请求打到 Kong 时，Kong 拦截请求并把客户端的 Cookie 抽出来，向集群内部的 `oauth2-proxy:4180/oauth2/auth` 发送一个探针子请求；
-- **按结果决断**：
-  - 若 OAuth2-Proxy 返回 `200/202 OK`，Kong 立即开门，将原始请求直接代理至后端 Pod；
-  - 若 OAuth2-Proxy 返回 `401 Unauthorized`，Kong 立即关门拦截，下发 `302 Redirect` 引导用户前往 Logto 扫码。
+Forward-Auth is a lightweight inquiry protocol between the edge gateway (Kong) and an authentication service (OAuth2-Proxy):
+- **Zero backend modification**: DbGate and LiteLLM require no code changes to support Logto or WeChat.
+- **Probe subrequest with credentials**: When a request reaches Kong, Kong intercepts it, extracts the client's cookies, and sends a fast subrequest to `oauth2-proxy:4180/oauth2/auth`.
+- **Decision handling**:
+  - If OAuth2-Proxy returns `200` or `202 OK`, Kong lets the request proceed directly to the backend pod.
+  - If OAuth2-Proxy returns `401 Unauthorized`, Kong blocks the request and issues a `302 Redirect` to Logto for login.
 
 ---
 
-## 2. 总体技术架构与流量拓扑
+## 2. Architecture and Traffic Topology
 
-### 2.1 架构拓扑图
+### 2.1 Topology Diagram
 
 ```
                          ┌──────────────────────────────────────────────────────────┐
-                         │                    Logto 身份认证中心                     │
-                         │   (OIDC IdP · 微信扫码 / GitHub / Google / Email Passcode)  │
+                         │                    Logto Identity Center                 │
+                         │   (OIDC IdP · WeChat QR / GitHub / Google / Email Passcode)│
                          └────────────────────────────▲─────────────────────────────┘
                                                       │ OIDC Auth / Token / Session End
                                                       ▼
-[ 用户浏览器 / 微信扫码 ] ──► [ Kong Gateway (Tencent3 Node · KIC) ]
+[ Browser / WeChat QR Scan ] ──► [ Kong Gateway (Tencent3 Node · KIC) ]
                                     │
-                                    ├── [未认证 UI 流量] ──(302 重定向)──► Logto 统一登录页
-                                    ├── [鉴权拦截 Subrequest] ─────────► OAuth2-Proxy (Port 4180)
-                                    │                                      └── [微信用户 sub 标识校验]
+                                    ├── [Unauthenticated UI Traffic] ──(302 Redirect)──► Logto Login Page
+                                    ├── [Auth Subrequest] ────────────────────────────► OAuth2-Proxy (Port 4180)
+                                    │                                                     └── [Verify sub claim]
                                     │
-                                    ▼ [鉴权通过 / Session Cookie 有效]
+                                    ▼ [Authenticated / Valid Session Cookie]
                      ┌──────────────┴───────────────────────────────────────────┐
                      │                                                          │
                      ▼                                                          ▼
            [ DbGate Service ]                                         [ LiteLLM Service ]
-          (/dbgate/* SPA 管理端)                                      ├── UI & 管理 API (OAuth2 保护)
+          (/dbgate/* SPA console)                                     ├── UI & Admin APIs (OAuth2 protected)
                                                                       │   (/ui, /_next, /key, /user, ...)
-                                                                      └── 模型推理 API (Bearer Key 放行)
+                                                                      └── Model Inference API (Bearer Key passthrough)
                                                                           (/litellm/v1/chat/completions)
 ```
 
-### 2.2 核心鉴权时序流程 (Mermaid)
+### 2.2 Authentication Sequence Flow
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as 用户浏览器 (Chrome / 微信)
+    actor User as Browser (Chrome / WeChat)
     participant Kong as Kong Gateway (Tencent3)
     participant Lua as custom-forward-auth (Kong Lua)
     participant Auth as OAuth2-Proxy (Auth Engine)
-    participant Logto as Logto IdP (微信登录)
-    participant Backend as 目标服务 (DbGate / LiteLLM)
+    participant Logto as Logto IdP (WeChat Login)
+    participant Backend as Target Service (DbGate / LiteLLM)
 
-    %% 1. 未登录访问
-    User->>Kong: 1. 发起请求 GET /dbgate/ 或 /ui
-    Kong->>Lua: 2. 执行 access 阶段门禁
-    Lua->>Auth: 3. 发起子请求 GET http://oauth2-proxy:4180/oauth2/auth (携带 Cookie)
-    Auth-->>Lua: 4. 未认证返回 401 Unauthorized
-    Lua-->>User: 5. 302 Redirect 至 /oauth2/start?rd=/dbgate/
-    User->>Kong: 6. 跟踪跳转 GET /oauth2/start
-    Kong->>Auth: 7. 代理至 OAuth2-Proxy
-    Auth-->>User: 8. 302 Redirect 至 Logto 微信授权登录页
+    %% 1. Unauthenticated Request
+    User->>Kong: 1. GET /dbgate/ or /ui
+    Kong->>Lua: 2. Execute access phase handler
+    Lua->>Auth: 3. Subrequest GET http://oauth2-proxy:4180/oauth2/auth (with Cookie)
+    Auth-->>Lua: 4. Return 401 Unauthorized
+    Lua-->>User: 5. 302 Redirect to /oauth2/start?rd=/dbgate/
+    User->>Kong: 6. Follow redirect GET /oauth2/start
+    Kong->>Auth: 7. Proxy to OAuth2-Proxy
+    Auth-->>User: 8. 302 Redirect to Logto login page
 
-    %% 2. 微信扫码与 ID Token 交换
-    User->>Logto: 9. 微信扫码授权 (返回 openid/sub)
-    Logto-->>User: 10. 302 Redirect 回 /oauth2/callback?code=...
+    %% 2. Login and Token Exchange
+    User->>Logto: 9. Scan WeChat QR code (returns openid/sub)
+    Logto-->>User: 10. 302 Redirect to /oauth2/callback?code=...
     User->>Kong: 11. GET /oauth2/callback?code=...
-    Kong->>Auth: 12. 代理至 OAuth2-Proxy
-    Auth->>Logto: 13. 后台用 Code 换取 Tokens (sub Claim 适配)
-    Logto-->>Auth: 14. 返回 ID Token & UserInfo
-    Note over Auth: 15. 提取 sub 校验 authenticated_users 白名单
-    Auth-->>User: 16. 注入 HttpOnly Session Cookie 并 302 重定向回原始页面
+    Kong->>Auth: 12. Proxy to OAuth2-Proxy
+    Auth->>Logto: 13. Exchange Code for tokens (sub claim mapping)
+    Logto-->>Auth: 14. Return ID Token and UserInfo
+    Note over Auth: 15. Extract sub, check authenticated_users allowlist
+    Auth-->>User: 16. Set HttpOnly Session Cookie and 302 redirect to original URL
 
-    %% 3. 已登录持续访问与 SPA 穿透
-    User->>Kong: 17. 携带 Cookie 访问 /dbgate/ 或 /key/list (AJAX)
-    Kong->>Lua: 18. 执行 access 阶段门禁
-    Lua->>Auth: 19. 子请求 GET /oauth2/auth (带 Cookie)
-    Auth-->>Lua: 20. 校验通过返回 202 Accepted + 注入 X-Auth-Request-User
-    Lua->>Kong: 21. 放行请求并透传用户身份 Header
-    Kong->>Backend: 22. 代理至后端 Pod
-    Backend-->>User: 23. 返回 200 OK
+    %% 3. Authenticated Access and SPA Passthrough
+    User->>Kong: 17. GET /dbgate/ or AJAX /key/list (with Cookie)
+    Kong->>Lua: 18. Execute access phase handler
+    Lua->>Auth: 19. Subrequest GET /oauth2/auth (with Cookie)
+    Auth-->>Lua: 20. Validation passes, returns 202 Accepted + X-Auth-Request-User
+    Lua->>Kong: 21. Pass request and forward identity headers
+    Kong->>Backend: 22. Proxy request to backend pod
+    Backend-->>User: 23. Return 200 OK
 ```
 
 ---
 
-## 3. 核心技术选型与关键设计纠偏
+## 3. Technology Selection and Design Decisions
 
-### 3.1 关键概念纠偏：Kong OSS (社区版) Forward-Auth 选型
+### 3.1 Kong OSS Forward-Auth Options
 
-| 方案类别 | 实现机制 | 优势 | 劣势 | 结论 |
+| Option | Mechanism | Pros | Cons | Verdict |
 | :--- | :--- | :--- | :--- | :---: |
-| ❌ **Nginx 注解方案** | `nginx.ingress.kubernetes.io/auth-url` | Nginx Ingress 常见 | **Kong OSS 社区版完全不识别该注解**，直接失效 | ❌ 坚决废弃 |
-| ❌ **Kong 官方插件** | `forward-auth` / `openid-connect` | 官方原生 | **仅限 Kong Enterprise 企业商业版**，开源版无法使用 | ❌ 无法采用 |
-| ✅ **方案 A：自定义 Lua Forward-Auth 插件 (推荐)** | 编写 `oauth2-forward-auth` KongPlugin，基于 `lua-resty-http` 向 OAuth2-Proxy 发起 subrequest | 架构解耦、高性能、保持 Kong 作为绝对统一网关、与现有 `custom-auth` 经验完全同构 | 需维护轻量 Lua 脚本 | 🌟 **首选推荐** |
-| ✅ **方案 B：Kong Upstream 链式反代** | Kong 将受护路径的 Upstream 直接指向 OAuth2-Proxy，由 OAuth2-Proxy 反代至后端 | 零 Lua 代码 | 增加一层 HTTP 代理转发 hop，且配置耦合度较高 | 备选方案 |
+| ❌ **Nginx Ingress Annotation** | `nginx.ingress.kubernetes.io/auth-url` | Common in Nginx Ingress | **Ignored by Kong OSS**, completely non-functional | ❌ Dropped |
+| ❌ **Official Kong Plugins** | `forward-auth` / `openid-connect` | Official vendor support | **Locked behind Kong Enterprise**, unavailable in OSS | ❌ Dropped |
+| ✅ **Option A: Custom Lua Forward-Auth Plugin (Recommended)** | `oauth2-forward-auth` KongPlugin using `lua-resty-http` to send subrequests to OAuth2-Proxy | Decoupled architecture, low latency, single gateway tier, consistent with existing `custom-auth` pattern | Requires maintaining a small Lua script | 🌟 **Selected** |
+| ✅ **Option B: Kong Upstream Proxy Chaining** | Route traffic to OAuth2-Proxy upstream, which proxies to backends | No Lua code required | Adds an extra proxy hop, introduces configuration coupling | Fallback only |
 
-#### 📊 方案 A 架构拓扑：自定义 Lua Forward-Auth 插件（旁路探针式问询 · 首选推荐）
+#### Option A Topology: Custom Lua Forward-Auth Plugin (Subrequest Probe - Selected)
 
 ```
-                                  [ 用户浏览器 / 微信扫码 ]
+                                  [ Browser / WeChat QR Scan ]
                                              │
-                                             ▼ (1. 原始业务请求)
+                                             ▼ (1. Original business request)
                             ┌─────────────────────────────────┐
                             │    Kong Gateway (Tencent3)      │
                             │                                 │
                             │   ┌─────────────────────────┐   │
                             │   │  oauth2-forward-auth    │   │
-                            │   │    (自定义 Lua 插件)     │   │
-                            └───┴────────────┬────────────┴───┘
-                                             │ (2. 内部轻量子请求 /oauth2/auth)
+                            │   │    (Custom Lua Plugin)  │   │
+                            │   └───┴────────────┬────────────┴───┘
+                                             │ (2. Lightweight internal subrequest /oauth2/auth)
                                              ▼
                                   ┌─────────────────────┐
                                   │    OAuth2-Proxy     │
-                                  │ (仅做 Session 鉴权) │
+                                  │ (Session auth only) │
                                   └──────────┬──────────┘
-                                             │ (3. 返回 202 放行 / 401 拦截)
+                                             │ (3. Return 202 Pass / 401 Block)
                                              ▼
                             ┌─────────────────────────────────┐
-                            │  Kong Gateway (获取鉴权决策)   │
+                            │  Kong Gateway (Decision engine) │
                             └────────────────┬────────────────┘
                                              │
                        ┌─────────────────────┴─────────────────────┐
-                       │ (4a. 若 202: 直接代理业务流量)             │ (4b. 若 401: 拦截并下发重定向)
+                       │ (4a. If 202: Proxy to target backend)     │ (4b. If 401: Intercept and issue 302 redirect)
                        ▼                                           ▼
              ┌───────────────────┐                       ┌───────────────────┐
-             │   受护后端服务     │                       │    Logto 登录页   │
-             │ (DbGate / LiteLLM)│                       │  (微信扫码 / 社交) │
+             │ Target Backend    │                       │ Logto Login Page  │
+             │ (DbGate / LiteLLM)│                       │ (WeChat / Social) │
              └───────────────────┘                       └───────────────────┘
-
-📌 特点：Kong 保持绝对统一的单层反向代理，OAuth2-Proxy 仅作为旁路鉴权判定器，业务流量零额外延迟。
 ```
 
-#### 📊 方案 B 架构拓扑：Kong Upstream 链式反代（串联透传式代理 · 备选方案）
+Kong operates as a single-tier reverse proxy. OAuth2-Proxy handles authentication decisions out-of-band with negligible latency overhead.
+
+#### Option B Topology: Upstream Reverse Proxy Chaining (Fallback)
 
 ```
-                                  [ 用户浏览器 / 微信扫码 ]
+                                  [ Browser / WeChat QR Scan ]
                                              │
-                                             ▼ (1. 原始业务请求)
+                                             ▼ (1. Original business request)
                             ┌─────────────────────────────────┐
                             │    Kong Gateway (Tencent3)      │
-                            │ (无鉴权插件，仅做边缘 TLS/分流) │
+                            │ (Edge TLS and basic routing)    │
                             └────────────────┬────────────────┘
                                              │
-                                             ▼ (2. 全量业务流量转发)
+                                             ▼ (2. Forward all traffic)
                             ┌─────────────────────────────────┐
-                            │    OAuth2-Proxy (反向代理模式)   │
+                            │    OAuth2-Proxy (Reverse Proxy) │
                             │                                 │
-                            │  • 拦截未认证请求 -> 302 Logto  │
-                            │  • 验证通过 -> 充当反向代理     │
+                            │  • Unauthenticated -> 302 Logto │
+                            │  • Authenticated -> Proxy pass  │
                             └────────────────┬────────────────┘
                                              │
-                                             ▼ (3. 二次转发/Proxy Pass)
+                                             ▼ (3. Second proxy hop)
                             ┌─────────────────────────────────┐
-                            │   受护后端服务 (DbGate/LiteLLM) │
+                            │ Target Backend (DbGate/LiteLLM) │
                             └─────────────────────────────────┘
-
-📌 特点：无需编写任何 Lua 代码，但所有受护业务流量都必须穿透 OAuth2-Proxy 发生二次 HTTP 转发（多一跳 Hop），且多服务路由配置较繁琐。
 ```
+
+Requires no Lua scripting, but forces all business payload traffic through OAuth2-Proxy as an intermediate hop.
 
 ---
 
-## 4. 关键痛点与避坑深度设计 (Critical Pitfalls & Solutions)
+## 4. Pitfalls and Solutions
 
-### 4.1 微信登录无 Email 属性引发的 OAuth2-Proxy 报错（高危致命坑）
+### 4.1 WeChat Login Missing Email Claim in OAuth2-Proxy
 
-* **隐患机理**：OAuth2-Proxy 默认按标准 OIDC 协议期望从 ID Token 中提取 `email` Claim 进行身份标识和白名单校验。但微信扫码登录（WeChat Connector）仅返回微信 `openid` / `unionid`，Logto 下发的 ID Token 默认**不包含 email 字段**。若使用默认配置，扫码回调后 OAuth2-Proxy 会直接抛出 `Error: user email not found in id_token` 并返回 500/403 崩溃。
-* **终极对策配置**：在 OAuth2-Proxy 的启动参数与配置文件中，必须显式覆盖以下参数：
+* **Root cause**: OAuth2-Proxy defaults to extracting the `email` claim from the ID Token for user identity and allowlist validation. WeChat QR login (via WeChat Connector) only returns WeChat `openid` / `unionid`. The ID Token generated by Logto **does not contain an email field**. By default, OAuth2-Proxy throws `Error: user email not found in id_token` and crashes with 500/403 errors after login callback.
+* **Fix**: Configure OAuth2-Proxy to use `sub` (Logto User ID) as the primary identity claim:
   ```ini
   # oauth2-proxy.cfg
   provider = "oidc"
   oidc_issuer_url = "https://<your-logto-domain>/oidc"
   
-  # 🎯 核心修复：强制使用 sub (Logto User ID) 替代 email 作为主身份 Claim
+  # Use sub (Logto User ID) instead of email
   user_id_claim = "sub"
   oidc_email_claim = "sub"
   email_domains = ["*"]
   insecure_oidc_allow_unverified_email = true
   
-  # 🎯 白名单机制：直接匹配 Logto 用户唯一的 sub ID
+  # Allowlist based on Logto sub IDs
   authenticated_users = [
-    "user_jason_master_sub_id",     # 主人的 Logto 用户 ID
-    "user_renee_sub_id",            # 授权家庭成员的 Logto 用户 ID
+    "user_jason_master_sub_id",
+    "user_renee_sub_id",
   ]
   ```
 
-### 4.2 微信开放平台资质门槛与多通道 IdP 策略
-* **资质限制**：PC 端微信网站扫码登录必须在【微信开放平台】创建网站应用并完成企业/个体工商户认证（每年需支付 300 元认证审核费），个人开发者账号无法开通。
-* **平滑接入策略**：
-  1. **第一阶段（零等待开发上线）**：在 Logto 中同时启用 **GitHub 登录 / Google 登录 / 邮箱无密码验证码 (Email Passcode)**，立即跑通 OAuth2-Proxy + Kong 全链路；
-  2. **第二阶段（资质就绪无缝切换）**：企业认证通过后，直接在 Logto 控制台启用 `WeChat Web` 社交连接器，**底层网关和 K8s 清单无需任何改动**，用户前端直接多出微信扫码入口。
+### 4.2 WeChat Open Platform Qualification and Phased Rollout
+* **Requirement**: PC web QR code login on WeChat Open Platform requires enterprise or business registration and annual verification fees. Personal accounts cannot enable web logins.
+* **Phased Strategy**:
+  1. **Phase 1 (Immediate implementation)**: Enable **GitHub, Google, and Email Passcode** in Logto to bring up the complete OAuth2-Proxy + Kong integration immediately.
+  2. **Phase 2 (WeChat enablement)**: Once business verification completes, enable the `WeChat Web` connector in the Logto console. **No Kubernetes manifests or gateway configs need to change**; the login page automatically updates with the WeChat QR code option.
 
-### 4.3 全链路登出闭环 (OIDC End-Session Logout)
-* **隐患**：单纯访问 `/oauth2/sign_out` 仅清除了 OAuth2-Proxy 在浏览器侧的 Session Cookie，Logto 服务端的 SSO 会话仍然处于活跃状态，用户再次点击登录会瞬间静默自动重新登录，无法切换账号。
-* **对策**：配置 OAuth2-Proxy 的登出重定向：
+### 4.3 End-to-End Logout (OIDC End-Session)
+* **Problem**: Calling `/oauth2/sign_out` only deletes the local browser session cookie managed by OAuth2-Proxy. The Logto IdP session remains active, so clicking login again immediately re-authenticates without prompting for credentials.
+* **Fix**: Configure the logout redirect in OAuth2-Proxy:
   ```ini
   signout_url = "https://<your-logto-domain>/oidc/session/end?post_logout_redirect_uri=https://gw.jppwl.asia/dbgate/"
   ```
-  实现浏览器本地 Cookie 清除 + Logto IdP 服务端 SSO 会话销毁的双重彻底注销。
+  This clears both the local cookie and the upstream Logto session.
 
 ---
 
-## 5. 受护服务精细化路由与 API 保护矩阵
+## 5. Route Protection and API Routing Matrix
 
-### 5.1 DbGate 路由策略
-* **路径匹配**：`/dbgate` 及 `/dbgate/*`
-* **鉴权策略**：挂载 `oauth2-forward-auth` KongPlugin，未携带合法 Session Cookie 的请求全部 302 重定向至登录。
-* **环境适配**：`WEB_ROOT=/dbgate`。
+### 5.1 DbGate Routing
+* **Path Match**: `/dbgate` and `/dbgate/*`
+* **Auth Policy**: Protected by `oauth2-forward-auth` KongPlugin. Unauthenticated requests are redirected (302) to login.
+* **Environment Variable**: `WEB_ROOT=/dbgate`.
 
-### 5.2 LiteLLM 完整路由防护矩阵（对齐现有 `litellm-svc-app.yaml`）
+### 5.2 LiteLLM Route Matrix (Aligned with `litellm-svc-app.yaml`)
 
-对齐现有生产 Helm 配置，将 LiteLLM 的流量分为 **【受护 UI 与管理面】** 和 **【免拦截推理数据面】**：
+Split LiteLLM traffic into **Protected UI & Management Plane** and **Direct Inference Plane**:
 
 ```yaml
 # ====================================================================
-# 1. LiteLLM Web UI 前端与全部后台管理 API (强 OAuth2 / 微信登录保护)
+# 1. LiteLLM Web UI and Admin APIs (Enforce OAuth2 Login)
 # ====================================================================
 extraRoutes:
   ui-route:
     parentGateway: kong-main-gateway
     parentGatewayNamespace: default
     annotations:
-      konghq.com/plugins: oauth2-forward-auth # 🎯 挂载 OAuth2 Forward-Auth 门禁
+      konghq.com/plugins: oauth2-forward-auth # Attach OAuth2 Forward-Auth
     rules:
-      # (A) 前端单页应用与静态资源
+      # (A) Frontend SPA and static assets
       - matches:
           - path: /ui
           - path: /litellm-asset-prefix
@@ -289,7 +289,7 @@ extraRoutes:
           - path: /get_favicon
           - path: /get_logo_url
           - path: /favicon.ico
-      # (B) 控制台登录与流程端点
+      # (B) Console login and onboarding endpoints
       - matches:
           - path: /login
           - path: /v2
@@ -298,7 +298,7 @@ extraRoutes:
           - path: /sso
           - path: /onboarding
           - path: /invitation
-      # (C) 敏感资源管理 API (防止外网未授权调用)
+      # (C) Admin and resource APIs
       - matches:
           - path: /key
           - path: /user
@@ -308,7 +308,7 @@ extraRoutes:
           - path: /project
           - path: /spend
           - path: /budget
-      # (D) 模型配置与全局设定 API
+      # (D) Model configuration and global settings
       - matches:
           - path: /models
           - path: /model
@@ -318,7 +318,7 @@ extraRoutes:
           - path: /global
           - path: /config
           - path: /settings
-      # (E) 监控审计与探活端点
+      # (E) Health and audit endpoints
       - matches:
           - path: /health
           - path: /cache
@@ -326,7 +326,7 @@ extraRoutes:
           - path: /audit
 
 # ====================================================================
-# 2. LiteLLM 模型推理数据面 API (免 OAuth2 拦截 · Bearer Token 直连)
+# 2. LiteLLM Inference Data Plane (Bypass OAuth2 · Direct Bearer Token)
 # ====================================================================
 route:
   enabled: true
@@ -335,147 +335,145 @@ route:
   pathType: PathPrefix
   annotations:
     konghq.com/strip-path: "true"
-    # 🎯 严禁挂载 oauth2 插件，仅由 LiteLLM 校验 sk-... 虚拟 Key
+    # No auth plugin attached here. LiteLLM validates sk-... keys directly.
 ```
 
-#### 5.3 核心设计解析：LiteLLM 推理 API 为什么必须 100% 绕过 OAuth2-Proxy？
-
-为了确保系统的高性能与自动化脚本的绝对稳定性，在此重点说明 **API 流量零拦截穿透机制**：
+### 5.3 Why Inference APIs Must Bypass OAuth2-Proxy
 
 ```
-                             ┌── [路线 A：Web 控制台] ──► 经过 OAuth2-Proxy ──► 微信/Logto 认证 (Cookie 保护)
-                             │    (匹配: /ui, /key, /user, /models...)
-[ 请求到达 Kong Gateway ] ───┤
+                             ┌── [Route A: Web Console] ────► Through OAuth2-Proxy ──► Logto Auth (Cookie)
+                             │    (Matches: /ui, /key, /user, /models...)
+[ Request to Kong Gateway ] ──┤
                              │
-                             └── [路线 B：LLM 推理 API] ─► ⚡ 100% 绕过 OAuth2-Proxy ──► 直达 LiteLLM Pod！
-                                  (匹配: /litellm/v1/*, 携带 Bearer sk-...)
+                             └── [Route B: LLM Inference API] ─► ⚡ Bypasses OAuth2-Proxy ──► LiteLLM Pod
+                                  (Matches: /litellm/v1/*, Bearer sk-...)
 ```
 
-| 对比维度 | 路线 A：Web 管理控制台 | 路线 B：LLM 模型推理 API |
+| Dimension | Route A: Web Management Console | Route B: LLM Inference API |
 | :--- | :--- | :--- |
-| **典型请求** | 浏览器打开 `https://gw.jppwl.asia/ui` | Agent 发送 `POST /litellm/v1/chat/completions` |
-| **目标受众** | 人类管理员（主人、团队成员） | 自动化脚本、Coding Agent (Claude/OpenCode/Cursor) |
-| **身份凭证** | 微信扫码下发的加密 Cookie (`_oauth2_proxy`) | LiteLLM 虚拟密钥 (`Authorization: Bearer sk-...`) |
-| **OAuth2-Proxy** | **必经门禁**（每次由 Kong 转发子请求进行 1ms 校验） | **完全绕过（Zero Contact）**，零额外网络跳数与开销 |
-| **若不分流的后果** | N/A | Agent 收到 302 HTML 登录页直接崩溃断流 |
-| **推理延迟影响** | N/A | **0ms 延迟损耗**，保证大模型流式（Stream）响应极致敏捷 |
+| **Typical Request** | Browser loads `https://gw.jppwl.asia/ui` | Agent sends `POST /litellm/v1/chat/completions` |
+| **Target Consumer** | Human administrators | Automated scripts, coding agents (Claude, OpenCode, Cursor) |
+| **Credentials** | Encrypted session cookie (`_oauth2_proxy`) | Virtual API Key (`Authorization: Bearer sk-...`) |
+| **OAuth2-Proxy** | **Enforced gate** (subrequest validated by Kong) | **Zero contact**, direct route to backend |
+| **Impact without split** | N/A | Agents receive 302 HTML redirects and break |
+| **Latency overhead** | Subrequest verification overhead | **0ms added latency**, preserving streaming performance |
 
 ---
 
-## 6. GitOps 目录结构与本仓库编码规划 (`my-argocd-manifests`)
+## 6. GitOps Directory Structure (`my-argocd-manifests`)
 
-所有实操代码均在当前仓库中直接编码与维护，严格遵循 **Helm Application 编排标准**：
+All resources are maintained declaratively in this repository following standard Helm Application patterns:
 
 ```
 my-argocd-manifests/
-├── argocd-apps/                                 # ArgoCD 顶层 Application 注册
-│   ├── root-bootstrap-app.yaml                  # 根 App (自动发现并级联同步所有子 App)
-│   ├── kong-infra-app.yaml                      # Kong 网关基础设施 (包含 CRD / Gateway / Plugins)
-│   ├── kong-controller-app.yaml                 # 🌟 [阶段三修改 2] 在 plugins.configMaps 中注册 oauth2-forward-auth 插件
-│   ├── oauth2-proxy-app.yaml                    # 🌟 [阶段二新增 1 · 已部署 ✅] OAuth2-Proxy 服务注册
-│   ├── dbgate-app.yaml                          # 🌟 [阶段四修改 3] values 注入 oauth2-forward-auth 插件注解
-│   └── litellm-svc-app.yaml                     # 🌟 [阶段四修改 4] extraRoutes.ui-route 注入 oauth2 插件注解
+├── argocd-apps/                                 # ArgoCD Application manifests
+│   ├── root-bootstrap-app.yaml                  # Root App (discovers and syncs child apps)
+│   ├── kong-infra-app.yaml                      # Kong Gateway infrastructure (CRDs, Gateway, Plugins)
+│   ├── kong-controller-app.yaml                 # Registers oauth2-forward-auth in plugins.configMaps
+│   ├── oauth2-proxy-app.yaml                    # OAuth2-Proxy service deployment
+│   ├── dbgate-app.yaml                          # Injects oauth2-forward-auth plugin annotation
+│   └── litellm-svc-app.yaml                     # Injects oauth2 plugin annotation onto extraRoutes.ui-route
 │
-├── infrastructure/                              # 基础网关与身份基建
+├── infrastructure/                              # Core gateway configuration
 │   └── kong-gateway/
-│       ├── Gateway.yaml                         # 网关主入口
+│       ├── Gateway.yaml                         # Gateway entrypoint
 │       ├── GatewayClass.yaml
-│       ├── custom-auth-plugin.yaml              # 旧版 Basic-Auth 插件 (保留作为对照/回退)
-│       └── oauth2-forward-auth-plugin.yaml      # 🌟 [阶段三新增 1] 自定义 Lua Forward-Auth (ConfigMap + KongPlugin)
+│       ├── custom-auth-plugin.yaml              # Legacy basic-auth plugin (kept for reference/rollback)
+│       └── oauth2-forward-auth-plugin.yaml      # Custom Lua Forward-Auth (ConfigMap + KongPlugin)
 │
-└── docs/                                        # 架构与方案文档
-    └── kong-logto-wechat-sso-plan.md            # 本架构与实施规划文档
+└── docs/                                        # Architecture and implementation docs
+    └── kong-logto-wechat-sso-plan.md            # This planning document
 ```
 
 ---
 
-## 7. 分阶段实施路线图与具体编码步骤 (Roadmap & Actionable Steps)
+## 7. Implementation Roadmap and Status
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                            实施五阶段规划 (Roadmap)                          │
+│                            Implementation Roadmap                           │
 ├─────────────┬─────────────┬─────────────┬─────────────┬─────────────────────┤
-│   阶段一    │   阶段二    │   阶段三    │   阶段四    │       阶段五        │
-│ Logto 应用  │ OAuth2-Proxy│ Kong Lua    │ DbGate &    │ 全链路连通性 /      │
-│ 与微信/IdP  │ GitOps 交付 │ Forward-Auth│ LiteLLM 路由│ 白名单与登出验收    │
-│  [已完成 ✅]│  [已完成 ✅]│  [已完成 ✅]│  [已完成 ✅]│     [全部就绪 🚀]   │
+│   Phase 1   │   Phase 2   │   Phase 3   │   Phase 4   │       Phase 5       │
+│ Logto App   │ OAuth2-Proxy│ Kong Lua    │ DbGate &    │ Verification &      │
+│ & IdP Setup │ Deployment  │ Forward-Auth│ LiteLLM     │ End-to-End Testing  │
+│  [Done ✅]  │  [Done ✅]  │  [Done ✅]  │  [Done ✅]  │      [Done 🚀]      │
 └─────────────┴─────────────┴─────────────┴─────────────┴─────────────────────┘
 ```
 
-### 阶段一：Logto IdP 端配置与 OIDC 应用创建 [已完成 ✅]
-1. [x] **创建 Logto 租户**：成功创建 Japan (日本) 区域租户 `sodaxw` (Discovery: `https://sodaxw.logto.app/oidc`)；
-2. [x] **M2M 管理凭据就绪**：启用 `Management API access` M2M 应用 (`jb7cwjizsopfm6etaicgn`) 并授权 `all` 管理权限；
-3. [x] **创建 Traditional Web App**：通过 Management API 自动化创建 OIDC 应用 `Kong Gateway SSO`：
+### Phase 1: Logto IdP Configuration [Completed ✅]
+1. [x] **Create Logto tenant**: Provisioned tenant `sodaxw` in Japan region (Discovery: `https://sodaxw.logto.app/oidc`).
+2. [x] **M2M management credentials**: Configured M2M app `jb7cwjizsopfm6etaicgn` with `all` permissions.
+3. [x] **Create Traditional Web App**: Created OIDC application `Kong Gateway SSO`:
    - **App ID (Client ID)**: `inck8s2812o0gzfgzqvug`
    - **Client Secret**: `ro4AzXu7jIm7H058Rd61aqmi84SwdUv3`
-4. [x] **配置回调与登出路由**：
+4. [x] **Configure URIs**:
    - **Redirect URI**: `https://gw.jppwl.asia/oauth2/callback`
    - **Post Sign-out URI**: `https://gw.jppwl.asia/dbgate/`
-5. [x] **身份源与连接器规划**：Logto 内置邮件与 Demo 社交源已就绪，预留微信开放平台审核通过后一键挂载；
-6. [x] **注册防护**：已明确关闭陌生人自由公开注册策略。
+5. [x] **Identity connectors**: Email passcode and social connectors enabled; WeChat connector ready for activation once business account verification completes.
+6. [x] **Registration policy**: Disabled open public registration.
 
 ---
 
-### 阶段二：OAuth2-Proxy GitOps 声明式部署（当前仓库编码） [已完成 ✅]
-* **交付清单**：`argocd-apps/oauth2-proxy-app.yaml`
-* **实测验证**：已推送到 GitOps 仓库并由 ArgoCD 自动部署至 `tencent-dp1-cluster`；
-* **已完成项**：
-  1. [x] **通用 Helm Chart 编排**：基于 `charts/generic-web-service` (v1.1.3)，声明部署至 `tencent-dp1-cluster` 的 `default` 命名空间；
-  2. [x] **节点调度锁死 (Node Affinity)**：首选第一版本通过 `nodeSelector: { kubernetes.io/hostname: "vm-0-2-debian" }` 将 Pod 精准钉在腾讯云主节点（与腾讯云 Kong 节点同机），享受极致的本地环回通信性能与稳定性；
-  3. [x] **镜像与探活配置**：采用稳定镜像 `quay.io/oauth2-proxy/oauth2-proxy:v7.8.1`，健康检查探活端点指向 `/ping`，Pod 处于 1/1 Ready 状态；
-  4. [x] **身份源与避坑环境变量注入**：
-     - 绑定 Logto Japan Discovery URL 与 Client ID/Secret；
-     - 生成并注入 32 字节高强度 Cookie Secret (`_oauth2_proxy`)；
-     - 启用 `user_id_claim="sub"` 与 `oidc_email_claim="sub"` 消除微信无邮箱报错；
-     - 设置 `cookie_domains=".jppwl.asia"` 支持泛域名跨应用 SSO；
-     - 配置 `signout_url` 联动 Logto `/oidc/session/end` 端点；
-  5. [x] **开放公网回调路由并实测**：通过 Gateway API 绑定 `kong-main-gateway`，对外暴露 `/oauth2` 端点，实测 `curl -I https://gw.jppwl.asia/oauth2/start` 成功返回 302 重定向至 Logto 认证页并下发 Cookie。
+### Phase 2: OAuth2-Proxy GitOps Deployment [Completed ✅]
+* **Manifest**: `argocd-apps/oauth2-proxy-app.yaml`
+* **Verification**: Synced by ArgoCD to `tencent-dp1-cluster`.
+* **Completed items**:
+  1. [x] **Generic Helm chart setup**: Deployed using `charts/generic-web-service` (v1.1.3) in the `default` namespace.
+  2. [x] **Node affinity**: Assigned to `vm-0-2-debian` alongside Kong on Tencent Cloud to optimize internal routing.
+  3. [x] **Image and probes**: Uses `quay.io/oauth2-proxy/oauth2-proxy:v7.8.1`, health check on `/ping`.
+  4. [x] **Environment variables configured**:
+     - Bound to Logto discovery endpoint, Client ID, and Client Secret.
+     - Generated and set 32-byte cookie secret.
+     - Set `user_id_claim="sub"` and `oidc_email_claim="sub"`.
+     - Configured `cookie_domains=".jppwl.asia"` for multi-service SSO.
+     - Configured `signout_url` to point to Logto `/oidc/session/end`.
+  5. [x] **Exposed OAuth2 callback route**: Route exposed via `kong-main-gateway` under `/oauth2`. `curl -I https://gw.jppwl.asia/oauth2/start` returns a 302 redirect to Logto and sets the CSRF cookie.
 
 ---
 
-### 阶段三：Kong Forward-Auth Lua 插件挂载与控制器注册（当前仓库编码） [已完成 ✅]
-* **交付清单**：
-  1. `infrastructure/kong-gateway/oauth2-forward-auth-plugin.yaml` (新增)
-  2. `argocd-apps/kong-controller-app.yaml` (更新挂载)
-* **实测验证**：Kong Controller DaemonSet 滚动更新成功，3 个节点的 Kong Pod 均成功挂载并装配 `oauth2-forward-auth` 插件；`KongPlugin/oauth2-forward-auth` 与 `KongClusterPlugin/oauth2-forward-auth` 在各命名空间已处于生效状态。
-* **已完成项**：
-  1. [x] **编写 Lua 门禁插件**：
-     - `schema.lua`：声明插件名称与配置参数；
-     - `handler.lua`：在 `access` 阶段拦截请求，通过 `resty.http` 向 `http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth` 发起内部子请求，200/202 透传身份放行，401 携带当前 `rd` 目标路径下发 302 重定向；
-  2. [x] **控制器挂载与装配**：在 `argocd-apps/kong-controller-app.yaml` 中通过 `plugins.configMaps` 注册并自动加载；
-  3. [x] **K8s 插件声明**：成功创建 `KongPlugin` 与 `KongClusterPlugin: oauth2-forward-auth`。
+### Phase 3: Kong Forward-Auth Lua Plugin [Completed ✅]
+* **Manifests**:
+  1. `infrastructure/kong-gateway/oauth2-forward-auth-plugin.yaml`
+  2. `argocd-apps/kong-controller-app.yaml`
+* **Verification**: Kong Controller DaemonSet rolled out successfully across all 3 nodes; `KongPlugin` and `KongClusterPlugin` active.
+* **Completed items**:
+  1. [x] **Lua handler implemented**:
+     - `schema.lua`: Defines configuration parameters (`auth_url`, `signin_url`, timeouts).
+     - `handler.lua`: Intercepts requests in the `access` phase, sends a subrequest to `http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth`, passes valid requests (200/202) with user headers, and returns 302 with `rd` query parameters on 401.
+  2. [x] **Controller plugin registration**: Registered via `plugins.configMaps` in `kong-controller-app.yaml`.
+  3. [x] **CRDs declared**: Created `KongPlugin` and `KongClusterPlugin` named `oauth2-forward-auth`.
 
 ---
 
-### 阶段四：DbGate 与 LiteLLM 接入与上线（当前仓库编码） [已完成 ✅]
-* **交付清单**：
-  1. `argocd-apps/dbgate-app.yaml` (切换插件)
-  2. `argocd-apps/litellm-svc-app.yaml` (UI 路由挂载插件)
-* **已完成项**：
-  1. [x] **更新 DbGate (`argocd-apps/dbgate-app.yaml`)**：
-     - 将 `service.annotations["konghq.com/plugins"]` 由 `dbgate-auth-plugin` 切换为 `oauth2-forward-auth`；
-  2. [x] **更新 LiteLLM (`argocd-apps/litellm-svc-app.yaml`)**：
-     - 在 `extraRoutes.ui-route.annotations` 中挂载 `konghq.com/plugins: oauth2-forward-auth`；
-     - 保持主推理路由 `route.path: /litellm` 不挂载任何认证插件，保证 API 穿透；
-  3. [x] **GitOps 提交与上线同步**：
-     - 推送至 `main` 分支，ArgoCD 自动应用更新。
+### Phase 4: Service Onboarding (DbGate & LiteLLM) [Completed ✅]
+* **Manifests**:
+  1. `argocd-apps/dbgate-app.yaml`
+  2. `argocd-apps/litellm-svc-app.yaml`
+* **Completed items**:
+  1. [x] **DbGate**: Updated `service.annotations["konghq.com/plugins"]` to `oauth2-forward-auth`.
+  2. [x] **LiteLLM**:
+     - Added `konghq.com/plugins: oauth2-forward-auth` under `extraRoutes.ui-route.annotations`.
+     - Kept `route.path: /litellm` clean of auth plugins to maintain direct API access.
+  3. [x] **GitOps sync**: Pushed changes to `main` branch; ArgoCD applied updates cleanly.
 
 ---
 
-### 阶段五：验收测试与边界验证 [全链路实测通过 💯]
-实测结果汇总矩阵：
+### Phase 5: Verification and Testing [Passed 💯]
 
-| 测试用例 ID | 测试场景 | 操作步骤 | 实测结果 | 结论 |
+| Test Case | Scenario | Execution | Expected / Actual Result | Status |
 | :---: | :--- | :--- | :--- | :---: |
-| **TC-01** | 未登录访问 DbGate | `curl -I https://gw.jppwl.asia/dbgate/` | 收到 `302 Found`，自动重定向至 `/oauth2/start?rd=%2Fdbgate%2F` 并联动跳转 Logto 登录页 | ✅ 通过 |
-| **TC-02** | 未登录访问 LiteLLM UI | `curl -I https://gw.jppwl.asia/ui/` | 收到 `302 Found`，自动重定向至 `/oauth2/start?rd=%2Fui%2F` 并联动跳转 Logto 登录页 | ✅ 通过 |
-| **TC-03** | 敏感管理 API 拦截 | `curl -I https://gw.jppwl.asia/key/list` | 收到 `302 Found` 重定向至 `/oauth2/start?rd=%2Fkey%2Flist` | ✅ 通过 |
-| **TC-04** | SPA 异步 AJAX 401 保护 | `curl -H "Accept: application/json" https://gw.jppwl.asia/key/list` | 收到 `401 Unauthorized` JSON 报错，避免前端解析 HTML 崩溃 | ✅ 通过 |
-| **TC-05** | **LiteLLM 模型推理 API 穿透** | `curl https://gw.jppwl.asia/litellm/v1/models` | **100% 绕过 OAuth2-Proxy**，直达 LiteLLM Pod 并返回原生 API 认证响应，零延迟阻断 | ✅ 通过 |
-| **TC-06** | 登录启动与 Cookie 颁发 | `curl -I https://gw.jppwl.asia/oauth2/start` | 成功跳转 `https://sodaxw.logto.app/oidc/auth` 并下发 `_oauth2_proxy_csrf` Cookie | ✅ 通过 |
+| **TC-01** | Unauthenticated DbGate access | `curl -I https://gw.jppwl.asia/dbgate/` | Returns `302 Found` to `/oauth2/start?rd=%2Fdbgate%2F`, redirects to Logto | ✅ Pass |
+| **TC-02** | Unauthenticated LiteLLM UI access | `curl -I https://gw.jppwl.asia/ui/` | Returns `302 Found` to `/oauth2/start?rd=%2Fui%2F`, redirects to Logto | ✅ Pass |
+| **TC-03** | Sensitive admin API intercept | `curl -I https://gw.jppwl.asia/key/list` | Returns `302 Found` redirect to `/oauth2/start?rd=%2Fkey%2Flist` | ✅ Pass |
+| **TC-04** | SPA AJAX 401 handling | `curl -H "Accept: application/json" https://gw.jppwl.asia/key/list` | Returns `401 Unauthorized` JSON to prevent client-side HTML parse failure | ✅ Pass |
+| **TC-05** | **LiteLLM Inference API Passthrough** | `curl https://gw.jppwl.asia/litellm/v1/models` | **Completely bypasses OAuth2-Proxy**, hits LiteLLM directly with standard auth response | ✅ Pass |
+| **TC-06** | OAuth2 start and cookie issuance | `curl -I https://gw.jppwl.asia/oauth2/start` | Redirects to `https://sodaxw.logto.app/oidc/auth` and sets `_oauth2_proxy_csrf` | ✅ Pass |
 
 ---
 
-## 8. 总结
+## 8. Summary
 
-升级后的 v2.0 方案彻底解决了 **Kong OSS 社区版插件兼容性**、**微信无 Email 属性导致的 OAuth2-Proxy 崩溃** 以及 **LiteLLM Next.js 前端路由与管理 API 保护不全** 等关键痛点，并与仓库现有的 Helm GitOps 架构保持了高度一致性与纯洁性。
+This deployment resolves key operational challenges across the cluster:
+- Eliminates dependency on Kong Enterprise by using a lightweight Lua forward-auth subrequest plugin.
+- Fixes the OAuth2-Proxy crash caused by missing email claims on WeChat logins by switching to the `sub` claim.
+- Provides complete route coverage for Next.js static assets and management APIs while leaving the core LLM inference data plane completely untouched for zero-latency direct access.
