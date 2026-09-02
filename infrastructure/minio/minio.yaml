@@ -52,6 +52,8 @@ spec:
                 secretKeyRef:
                   name: minio-secret
                   key: MINIO_ROOT_PASSWORD
+            - name: MINIO_BROWSER_REDIRECT_URL
+              value: "https://minio.jppwl.asia"
           ports:
             - name: s3-api
               containerPort: 9000
@@ -103,3 +105,30 @@ spec:
     - name: web-console
       port: 9001
       targetPort: 9001
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: minio-console-route
+  namespace: minio
+  labels:
+    app: minio
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: kong-main-gateway
+      namespace: default
+  hostnames:
+    - "minio.jppwl.asia"
+  rules:
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: minio
+          port: 9001
+          weight: 1
+      matches:
+        - path:
+            type: PathPrefix
+            value: /
