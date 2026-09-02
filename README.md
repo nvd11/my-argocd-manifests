@@ -36,6 +36,12 @@ The delivery workflow separates infrastructure layers, ingress gateways, and app
 +-----------------------------------------------------------------------------------+
 ```
 
+### ArgoCD Cluster Dashboard
+
+![ArgoCD Application Dashboard](docs/images/argocd-dashboard.png)
+
+*All 10 cluster workloads deployed and managed in a Healthy/Synced state across target clusters via ArgoCD GitOps.*
+
 ---
 
 ## 2. Directory Layout
@@ -67,6 +73,8 @@ my-argocd-manifests/
 │       └── oauth2-forward-auth-plugin.yaml # Custom Lua forward-auth plugin (ConfigMap + CRDs)
 │
 └── docs/
+    ├── images/
+    │   └── argocd-dashboard.png        # ArgoCD Applications dashboard screenshot
     ├── kong-logto-github-sso-deep-dive-blog.md # Technical deep dive on Kong + Logto GitHub SSO
     └── kong-logto-wechat-sso-plan.md           # Architecture plan for Logto WeChat SSO integration
 ```
