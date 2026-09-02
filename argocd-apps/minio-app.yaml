@@ -12,6 +12,12 @@ spec:
       kind: Secret
       jsonPointers:
         - /data
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      jsonPointers:
+        - /spec/parentRefs/0/group
+        - /spec/parentRefs/0/kind
+        - /status
   source:
     repoURL: 'https://github.com/nvd11/my-argocd-manifests.git'
     path: infrastructure/minio
