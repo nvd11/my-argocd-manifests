@@ -167,6 +167,7 @@ spec:
       namespace: default
   hostnames:
     - "payloads.jppwl.asia"
+    - "minio.jppwl.asia"
   rules:
     - backendRefs:
         - group: ""
@@ -177,4 +178,4 @@ spec:
       matches:
         - path:
             type: PathPrefix
-            value: /
+            value: /litellm-payloads
