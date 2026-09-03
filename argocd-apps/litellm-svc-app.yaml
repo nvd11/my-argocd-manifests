@@ -122,6 +122,7 @@ spec:
               - matches:
                   - path: /dashboard
                   - path: /api/v1
+              - matches:
                   - path: /ui
                   - path: /litellm-asset-prefix
                   - path: /_next
