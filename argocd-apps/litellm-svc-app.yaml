@@ -120,6 +120,8 @@ spec:
               konghq.com/plugins: oauth2-forward-auth
             rules:
               - matches:
+                  - path: /dashboard
+                  - path: /api/v1
                   - path: /ui
                   - path: /litellm-asset-prefix
                   - path: /_next
