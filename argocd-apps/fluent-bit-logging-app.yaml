@@ -15,6 +15,10 @@ spec:
       values: |
         kind: DaemonSet
 
+        image:
+          repository: ghcr.io/fluent/fluent-bit
+          tag: 3.2.4
+
         testFramework:
           enabled: false
 
