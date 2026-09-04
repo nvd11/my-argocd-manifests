@@ -1,0 +1,85 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fluent-bit-logging
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: default
+  source:
+    repoURL: 'https://fluent.github.io/helm-charts'
+    chart: fluent-bit
+    targetRevision: '0.48.4'
+    helm:
+      values: |
+        kind: DaemonSet
+
+        testFramework:
+          enabled: false
+
+        # 确保所有节点（无论是否有污点、无论是 ARM64 还是 AMD64）都拉起 DaemonSet
+        tolerations:
+          - operator: Exists
+            effect: NoSchedule
+
+        config:
+          service: |
+            [SERVICE]
+                Daemon          Off
+                Flush           1
+                Log_Level       info
+                Parsers_File    /fluent-bit/etc/parsers.conf
+                Parsers_File    /fluent-bit/etc/conf/custom_parsers.conf
+                HTTP_Server     On
+                HTTP_Listen     0.0.0.0
+                HTTP_Port       2020
+                Health_Check    On
+
+          inputs: |
+            [INPUT]
+                Name             tail
+                Path             /var/log/containers/*.log
+                multiline.parser docker, cri
+                Tag              kube.*
+                Mem_Buf_Limit    50MB
+                Skip_Long_Lines  On
+
+          filters: |
+            # 1. 注入 Kubernetes 标准元数据 (命名空间、Pod 名、容器名等)
+            [FILTER]
+                Name                kubernetes
+                Match               kube.*
+                Merge_Log           On
+                Keep_Log            Off
+                K8S-Logging.Parser  On
+                K8S-Logging.Exclude On
+
+            # 2. 🎯 精准白名单过滤：首期仅捕获 litellm-svc 与 dbgate
+            [FILTER]
+                Name    grep
+                Match   kube.*
+                Regex   $kubernetes['container_name'] ^(litellm-svc|dbgate)$
+
+          outputs: |
+            # 3. 🎯 输出直推星光板 VictoriaLogs (Tailscale 加密专网)
+            [OUTPUT]
+                Name             http
+                Match            kube.*
+                Host             100.95.20.57
+                Port             9428
+                URI              /insert/jsonline?_stream_fields=kubernetes.namespace_name,kubernetes.pod_name,kubernetes.container_name&_time_field=date&_msg_field=log
+                Format           json_stream
+                json_date_key    date
+                json_date_format iso8601
+                Retry_Limit      5
+
+  destination:
+    name: 'tencent-dp1-cluster'
+    namespace: logging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
