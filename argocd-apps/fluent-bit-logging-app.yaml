@@ -59,11 +59,11 @@ spec:
                 K8S-Logging.Parser  On
                 K8S-Logging.Exclude On
 
-            # 2. 🎯 精准白名单过滤：首期仅捕获 litellm-svc 与 dbgate
+            # 2. 🎯 精准白名单过滤：首期仅捕获 litellm-svc 与 dbgate Pod
             [FILTER]
                 Name    grep
                 Match   kube.*
-                Regex   $kubernetes['container_name'] ^(litellm-svc|dbgate)$
+                Regex   $kubernetes['pod_name'] ^(litellm-svc|dbgate)
 
           outputs: |
             # 3. 🎯 输出直推星光板 VictoriaLogs (Tailscale 加密专网)
