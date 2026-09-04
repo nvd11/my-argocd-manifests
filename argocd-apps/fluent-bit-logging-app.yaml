@@ -73,7 +73,7 @@ spec:
                 Host             100.95.20.57
                 Port             9428
                 URI              /insert/jsonline?_stream_fields=kubernetes.namespace_name,kubernetes.pod_name,kubernetes.container_name&_time_field=date&_msg_field=log
-                Format           json_stream
+                Format           json_lines
                 json_date_key    date
                 json_date_format iso8601
                 Retry_Limit      5
