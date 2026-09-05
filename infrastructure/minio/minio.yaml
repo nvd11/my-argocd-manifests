@@ -178,4 +178,7 @@ spec:
       matches:
         - path:
             type: PathPrefix
+            value: /payloads
+        - path:
+            type: PathPrefix
             value: /litellm-payloads
