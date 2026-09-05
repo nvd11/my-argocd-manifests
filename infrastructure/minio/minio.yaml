@@ -35,6 +35,8 @@ spec:
     spec:
       nodeSelector:
         kubernetes.io/hostname: nuc # 🔒 调度固定在带 800GB NVMe 的 NUC 节点
+      hostNetwork: true # 🚀 使用宿主机网络，NUC 本地直连 localhost:9000，绕过 K8s ClusterIP
+      dnsPolicy: ClusterFirstWithHostNet # hostNetwork 时仍需解析 K8s 内部 DNS
       containers:
         - name: minio
           image: quay.io/minio/minio:RELEASE.2024-08-29T01-40-52Z
@@ -76,8 +78,10 @@ spec:
           ports:
             - name: s3-api
               containerPort: 9000
+              hostPort: 9000 # 🔒 绑定到 NUC 物理网卡 9000 端口
             - name: web-console
               containerPort: 9001
+              hostPort: 9001 # 🔒 绑定到 NUC 物理网卡 9001 端口
           volumeMounts:
             - name: minio-storage
               mountPath: /data
