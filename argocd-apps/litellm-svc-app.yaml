@@ -68,6 +68,9 @@ spec:
             - secretKey: A6_API_KEY
               remoteRef:
                 key: litellm-a6-api-key
+            - secretKey: META_API_KEY
+              remoteRef:
+                key: litellm-meta-api-key
             - secretKey: LITELLM_MASTER_KEY
               remoteRef:
                 key: litellm-master-key
