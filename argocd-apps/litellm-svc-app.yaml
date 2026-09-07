@@ -16,7 +16,7 @@ spec:
 
         image:
           repository: ghcr.io/nvd11/my-litellm-svc
-          digest: sha256:815153eca26b8f33da79c30d7ba74980a1f31c72657aee040747b1c13181cf61
+          digest: sha256:930c3331eba3ed4a158792264530fd4b30c924ab409a214e0a4d97026d8e5666
           pullPolicy: IfNotPresent
 
         env:
