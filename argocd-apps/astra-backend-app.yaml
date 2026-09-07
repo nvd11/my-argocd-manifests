@@ -101,7 +101,7 @@ spec:
 
   destination:
     name: tencent-dp1-cluster
-    namespace: astra
+    namespace: llm-system
   syncPolicy:
     automated:
       prune: true
