@@ -16,7 +16,7 @@ spec:
 
         image:
           repository: ghcr.io/nvd11/astra-backend
-          digest: sha256:c71978749506c73abfce8c57814cb7033ceb0755e41b3772aa741f9377d8c0bf
+          digest: sha256:f1ab116b8b2fe495267c4c6419c98642bea1feeead824babebff74bf27ed184a
           pullPolicy: IfNotPresent
 
         envFrom:
