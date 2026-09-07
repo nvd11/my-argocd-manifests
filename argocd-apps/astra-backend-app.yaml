@@ -1,0 +1,110 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: astra-backend
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nvd11/my-shared-helm-charts.git
+    path: charts/generic-web-service-v2
+    targetRevision: main
+    helm:
+      values: |
+        replicaCount: 1
+        containerPort: 8000
+
+        image:
+          repository: ghcr.io/nvd11/astra-backend
+          digest: sha256:c71978749506c73abfce8c57814cb7033ceb0755e41b3772aa741f9377d8c0bf
+          pullPolicy: IfNotPresent
+
+        envFrom:
+          - configMapRef:
+              name: astra-backend-config
+          - secretRef:
+              name: astra-backend-secrets
+
+        configMap:
+          enabled: true
+          name: astra-backend-config
+          data:
+            APP_NAME: "Astra"
+            APP_VERSION: "1.0.0"
+            APP_ENVIRONMENT: "prod"
+            APP_DEBUG: "false"
+            APP_HOST: "0.0.0.0"
+            APP_PORT: "8000"
+            APP_WORKERS: "1"
+            APP_LOG_LEVEL: "INFO"
+            APP_LITELLM_BASE_URL: "https://gw.jppwl.asia/litellm/v1"
+            APP_DEFAULT_MODEL: "gemini-3.8-flash"
+            APP_AUTH_ENABLED: "true"
+            APP_AUTH_MODE: "cloudflare"
+            APP_CLOUDFLARE_TEAM_NAME: "jppwl"
+            APP_CLOUDFLARE_AUDIENCE: "astra-audience-tag"
+
+        externalSecret:
+          enabled: true
+          refreshInterval: 1h
+          secretStoreRef:
+            name: oci-litellm-vault-store
+            kind: SecretStore
+          target:
+            name: astra-backend-secrets
+            creationPolicy: Owner
+          data:
+            - secretKey: APP_DATABASE_URL
+              remoteRef:
+                key: astra-mysql-heatwave-url
+            - secretKey: APP_REDIS_URL
+              remoteRef:
+                key: astra-redis-url
+            - secretKey: APP_LITELLM_API_KEY
+              remoteRef:
+                key: astra-litellm-api-key
+
+        livenessProbe:
+          enabled: true
+          path: /live
+          port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          failureThreshold: 3
+
+        readinessProbe:
+          enabled: true
+          path: /ready
+          port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          failureThreshold: 3
+
+        service:
+          type: ClusterIP
+          port: 8000
+          annotations:
+            konghq.com/read-timeout: "180000"
+            konghq.com/write-timeout: "180000"
+            konghq.com/connect-timeout: "60000"
+
+        route:
+          enabled: true
+          parentGateway: kong-main-gateway
+          path: /api
+          pathType: PathPrefix
+          annotations:
+            konghq.com/strip-path: "true"
+
+        nodeSelector:
+          kubernetes.io/hostname: free-arm-vm
+
+  destination:
+    name: tencent-dp1-cluster
+    namespace: astra
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
