@@ -22,8 +22,6 @@ spec:
         envFrom:
           - configMapRef:
               name: astra-backend-config
-          - secretRef:
-              name: astra-backend-secrets
 
         configMap:
           enabled: true
@@ -37,32 +35,15 @@ spec:
             APP_PORT: "8000"
             APP_WORKERS: "1"
             APP_LOG_LEVEL: "INFO"
+            APP_DATABASE_URL: "mysql+asyncmy://admin:Hsbc1234!@161.118.240.218:3306/astra"
+            APP_REDIS_URL: "redis://:hsbc1234@redis.redis.svc.cluster.local:6379/0"
             APP_LITELLM_BASE_URL: "https://gw.jppwl.asia/litellm/v1"
+            APP_LITELLM_API_KEY: "sk-9zKBqtZ_kc6s24kVQPN9Lw"
             APP_DEFAULT_MODEL: "gemini-3.8-flash"
-            APP_AUTH_ENABLED: "true"
+            APP_AUTH_ENABLED: "false"
             APP_AUTH_MODE: "cloudflare"
             APP_CLOUDFLARE_TEAM_NAME: "jppwl"
             APP_CLOUDFLARE_AUDIENCE: "astra-audience-tag"
-
-        externalSecret:
-          enabled: true
-          refreshInterval: 1h
-          secretStoreRef:
-            name: oci-litellm-vault-store
-            kind: SecretStore
-          target:
-            name: astra-backend-secrets
-            creationPolicy: Owner
-          data:
-            - secretKey: APP_DATABASE_URL
-              remoteRef:
-                key: astra-mysql-heatwave-url
-            - secretKey: APP_REDIS_URL
-              remoteRef:
-                key: astra-redis-url
-            - secretKey: APP_LITELLM_API_KEY
-              remoteRef:
-                key: astra-litellm-api-key
 
         livenessProbe:
           enabled: true
