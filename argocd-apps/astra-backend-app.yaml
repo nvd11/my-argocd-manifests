@@ -33,6 +33,7 @@ spec:
             APP_DEBUG: "false"
             APP_HOST: "0.0.0.0"
             APP_PORT: "8000"
+            APP_ROOT_PATH: "/astra/api"
             APP_WORKERS: "1"
             APP_LOG_LEVEL: "INFO"
             APP_DATABASE_URL: "mysql+asyncmy://admin:Hsbc1234!@161.118.240.218:3306/astra"
@@ -72,7 +73,7 @@ spec:
         route:
           enabled: true
           parentGateway: kong-main-gateway
-          path: /api
+          path: /astra/api
           pathType: PathPrefix
           annotations:
             konghq.com/strip-path: "true"

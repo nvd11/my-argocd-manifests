@@ -42,7 +42,7 @@ spec:
         route:
           enabled: true
           parentGateway: kong-main-gateway
-          path: /
+          path: /astra
           pathType: PathPrefix
 
         nodeSelector:
