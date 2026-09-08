@@ -1,0 +1,59 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: astra-frontend
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nvd11/my-shared-helm-charts.git
+    path: charts/generic-web-service-v2
+    targetRevision: main
+    helm:
+      values: |
+        replicaCount: 1
+        containerPort: 80
+
+        image:
+          repository: ghcr.io/nvd11/astra-frontend
+          digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+          pullPolicy: IfNotPresent
+
+        livenessProbe:
+          enabled: true
+          path: /health
+          port: http
+          initialDelaySeconds: 10
+          periodSeconds: 20
+          failureThreshold: 3
+
+        readinessProbe:
+          enabled: true
+          path: /health
+          port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3
+
+        service:
+          type: ClusterIP
+          port: 80
+
+        route:
+          enabled: true
+          parentGateway: kong-main-gateway
+          path: /
+          pathType: PathPrefix
+
+        nodeSelector:
+          kubernetes.io/hostname: free-arm-vm
+
+  destination:
+    name: tencent-dp1-cluster
+    namespace: llm-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

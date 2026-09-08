@@ -25,7 +25,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ "$SVC_NAME" != "litellm-svc" && "$SVC_NAME" != "astra-backend" ]]; then
+          if [[ "$SVC_NAME" != "litellm-svc" && "$SVC_NAME" != "astra-backend" && "$SVC_NAME" != "astra-frontend" ]]; then
             echo "Unsupported service: $SVC_NAME" >&2
             exit 1
           fi
