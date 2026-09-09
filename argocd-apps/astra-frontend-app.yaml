@@ -38,12 +38,16 @@ spec:
         service:
           type: ClusterIP
           port: 80
+          annotations:
+            konghq.com/plugins: oauth2-forward-auth
 
         route:
           enabled: true
           parentGateway: kong-main-gateway
           path: /astra
           pathType: PathPrefix
+          annotations:
+            konghq.com/plugins: oauth2-forward-auth
 
         nodeSelector:
           kubernetes.io/hostname: free-arm-vm

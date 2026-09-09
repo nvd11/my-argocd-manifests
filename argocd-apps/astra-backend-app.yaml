@@ -41,8 +41,8 @@ spec:
             APP_LITELLM_BASE_URL: "https://gw.jppwl.asia/litellm/v1"
             APP_LITELLM_API_KEY: "sk-9zKBqtZ_kc6s24kVQPN9Lw"
             APP_DEFAULT_MODEL: "gemini-3.8-flash"
-            APP_AUTH_ENABLED: "false"
-            APP_AUTH_MODE: "cloudflare"
+            APP_AUTH_ENABLED: "true"
+            APP_AUTH_MODE: "forward-auth"
             APP_CLOUDFLARE_TEAM_NAME: "jppwl"
             APP_CLOUDFLARE_AUDIENCE: "astra-audience-tag"
 
@@ -66,6 +66,7 @@ spec:
           type: ClusterIP
           port: 8000
           annotations:
+            konghq.com/plugins: oauth2-forward-auth
             konghq.com/read-timeout: "180000"
             konghq.com/write-timeout: "180000"
             konghq.com/connect-timeout: "60000"
@@ -77,6 +78,7 @@ spec:
           pathType: PathPrefix
           annotations:
             konghq.com/strip-path: "true"
+            konghq.com/plugins: oauth2-forward-auth
 
         nodeSelector:
           kubernetes.io/hostname: free-arm-vm
