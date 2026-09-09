@@ -24,6 +24,8 @@ spec:
             value: "oidc"
           - name: OAUTH2_PROXY_OIDC_ISSUER_URL
             value: "https://sodaxw.logto.app/oidc"
+          - name: OAUTH2_PROXY_SCOPE
+            value: "openid profile email"
           - name: OAUTH2_PROXY_CLIENT_ID
             value: "inck8s2812o0gzfgzqvug"
           - name: OAUTH2_PROXY_CLIENT_SECRET
