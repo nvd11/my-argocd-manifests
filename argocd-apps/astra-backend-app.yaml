@@ -43,6 +43,7 @@ spec:
             APP_DEFAULT_MODEL: "gemini-3.8-flash"
             APP_AUTH_ENABLED: "true"
             APP_AUTH_MODE: "forward-auth"
+            APP_LOGTO_ENDPOINT: "https://sodaxw.logto.app"
             APP_CLOUDFLARE_TEAM_NAME: "jppwl"
             APP_CLOUDFLARE_AUDIENCE: "astra-audience-tag"
 
