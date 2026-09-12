@@ -85,6 +85,12 @@ spec:
             - secretKey: DATABASE_URL
               remoteRef:
                 key: litellm-database-url
+            - secretKey: RIN_API_KEY
+              remoteRef:
+                key: litellm-rin-api-key
+            - secretKey: YUI_API_KEY
+              remoteRef:
+                key: litellm-yui-api-key
 
         livenessProbe:
           enabled: true
