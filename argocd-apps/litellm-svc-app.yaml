@@ -105,8 +105,8 @@ spec:
           type: ClusterIP
           port: 4000
           annotations:
-            konghq.com/read-timeout: "180000"
-            konghq.com/write-timeout: "180000"
+            konghq.com/read-timeout: "600000"
+            konghq.com/write-timeout: "600000"
             konghq.com/connect-timeout: "60000"
 
         route:
