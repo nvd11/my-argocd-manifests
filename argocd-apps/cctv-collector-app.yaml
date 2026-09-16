@@ -14,6 +14,8 @@ spec:
         replicaCount: 1
         containerPort: 8081
 
+        nameOverride: cctv-collector
+
         image:
           repository: ghcr.io/nvd11/cctv-collector-service
           digest: sha256:cb46e351726d5249ed2c744851c91a662b48c2ced2bae9b01fb7760218976338
