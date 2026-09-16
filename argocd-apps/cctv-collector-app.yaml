@@ -1,0 +1,68 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cctv-collector
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nvd11/my-shared-helm-charts.git
+    path: charts/generic-web-service-v2
+    targetRevision: main
+    helm:
+      values: |
+        replicaCount: 1
+        containerPort: 8081
+
+        image:
+          repository: ghcr.io/nvd11/cctv-collector-service
+          digest: sha256:cb46e351726d5249ed2c744851c91a662b48c2ced2bae9b01fb7760218976338
+          pullPolicy: IfNotPresent
+
+        envFrom:
+          - configMapRef:
+              name: cctv-collector-config
+
+        configMap:
+          enabled: true
+          name: cctv-collector-config
+          data:
+            CCTV_RTSP_URL: "rtsp://admin:ga32565624@10.0.1.20:554/stream1"
+            CCTV_BUFFER_DIR: "/mnt/buffer/cctv"
+            CCTV_SEGMENT_SECONDS: "900"
+            CCTV_MIN_FREE_DISK_GB: "5"
+
+        livenessProbe:
+          enabled: true
+          path: /q/health/live
+          port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          enabled: true
+          path: /q/health/ready
+          port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        service:
+          type: ClusterIP
+          port: 8081
+
+        nodeSelector:
+          kubernetes.io/hostname: radxa-cubie-a7a
+
+  destination:
+    name: tencent-dp1-cluster
+    namespace: cctv-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
