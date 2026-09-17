@@ -38,7 +38,7 @@ spec:
             APP_LOG_LEVEL: "INFO"
             APP_DATABASE_URL: "mysql+asyncmy://admin:Hsbc1234!@161.118.240.218:3306/astra"
             APP_REDIS_URL: "redis://:hsbc1234@redis.redis.svc.cluster.local:6379/0"
-            APP_LITELLM_BASE_URL: "https://gw.jppwl.asia/litellm/v1"
+            APP_LITELLM_BASE_URL: "http://litellm-svc.llm-system.svc.cluster.local:4000/v1"
             APP_LITELLM_API_KEY: "sk-9zKBqtZ_kc6s24kVQPN9Lw"
             APP_DEFAULT_MODEL: "gemini-3.8-flash"
             APP_AUTH_ENABLED: "true"
