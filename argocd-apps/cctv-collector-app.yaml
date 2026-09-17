@@ -56,6 +56,15 @@ spec:
           type: ClusterIP
           port: 8081
 
+        route:
+          enabled: true
+          parentGateway: kong-main-gateway
+          parentGatewayNamespace: default
+          path: /cctv
+          pathType: PathPrefix
+          annotations:
+            konghq.com/strip-path: "true"
+
         nodeSelector:
           kubernetes.io/hostname: radxa-cubie-a7a
 
