@@ -18,7 +18,7 @@ spec:
 
         image:
           repository: ghcr.io/nvd11/cctv-collector-service
-          digest: sha256:86866878337cb10468e17fc56e5a7cdc81123a567664dd13242dabafdaa00562
+          digest: sha256:11e0644914c5215eb4292c28f9387b287faa414b2b12c50083c127935ef8e30e
           pullPolicy: IfNotPresent
 
         envFrom:
