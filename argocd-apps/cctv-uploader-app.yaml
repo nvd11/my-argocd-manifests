@@ -18,7 +18,7 @@ spec:
 
         image:
           repository: ghcr.io/nvd11/cctv-uploader-service
-          digest: sha256:16f4df7fe8ad38a1f00596c262f8ceafdc9fb960a3cb71d78ed0e3df5dab55a2
+          digest: sha256:938c28326c5cd00fa742a09c3da091c10d7ed049631884028981187b8350913b
           pullPolicy: IfNotPresent
 
         envFrom:
