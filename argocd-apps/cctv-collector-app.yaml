@@ -25,6 +25,16 @@ spec:
           - configMapRef:
               name: cctv-collector-config
 
+        volumeMounts:
+          - name: cctv-buffer-vol
+            mountPath: /mnt/buffer/cctv
+
+        volumes:
+          - name: cctv-buffer-vol
+            hostPath:
+              path: /home/gateman/cctv-buffer
+              type: DirectoryOrCreate
+
         configMap:
           enabled: true
           name: cctv-collector-config
