@@ -18,7 +18,7 @@ spec:
 
         image:
           repository: ghcr.io/nvd11/cctv-uploader-service
-          digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+          digest: sha256:16f4df7fe8ad38a1f00596c262f8ceafdc9fb960a3cb71d78ed0e3df5dab55a2
           pullPolicy: IfNotPresent
 
         envFrom:
@@ -42,13 +42,13 @@ spec:
             CCTV_UPLOADER_BUFFER_DIR: "/mnt/buffer/cctv"
             CCTV_UPLOADER_ALIST_ENDPOINT: "http://10.0.1.227:5244/dav"
             CCTV_UPLOADER_ALIST_USERNAME: "gateman"
-            CCTV_UPLOADER_ALIST_PASSWORD: "ga32565624"
+            CCTV_UPLOADER_ALIST_PASSWORD: "32565624"
             CCTV_UPLOADER_REMOTE_BASE_DIR: "/Quark/CCTV_Records"
             CCTV_UPLOADER_LOCATION_NAME: "锦绣世家_客厅"
             CCTV_UPLOADER_MIN_FILE_AGE_SECONDS: "60"
             CCTV_UPLOADER_MAX_CONCURRENT_UPLOADS: "1"
             CCTV_UPLOADER_CLEANUP_POLICY: "DELETE"
-            CCTV_UPLOADER_SCAN_CRON_EXPRESSION: "0 */5 * * * ?"
+            CCTV_UPLOADER_SCAN_CRON_EXPRESSION: "0 */2 * * * ?"
 
         livenessProbe:
           enabled: true
