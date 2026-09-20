@@ -39,6 +39,7 @@ spec:
           enabled: true
           name: cctv-uploader-config
           data:
+            TZ: "Asia/Shanghai"
             CCTV_UPLOADER_BUFFER_DIR: "/mnt/buffer/cctv"
             CCTV_UPLOADER_ALIST_ENDPOINT: "http://10.0.1.227:5244/dav"
             CCTV_UPLOADER_ALIST_USERNAME: "gateman"
