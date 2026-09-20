@@ -82,12 +82,12 @@ spec:
             parentGateway: kong-main-gateway
             parentGatewayNamespace: default
             annotations:
-              konghq.com/strip-path: "true"
+              konghq.com/strip-path: "false"
             rules:
               - matches:
-                  - path: /cctv-uploader/api/uploader/status
-                  - path: /cctv-uploader/api/uploader/tasks
-                  - path: /cctv-uploader/q/health
+                  - path: /api/uploader/status
+                  - path: /api/uploader/tasks
+                  - path: /q/health
 
         nodeSelector:
           kubernetes.io/hostname: radxa-cubie-a7a
