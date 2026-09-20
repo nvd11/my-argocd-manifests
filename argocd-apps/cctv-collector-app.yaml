@@ -39,6 +39,7 @@ spec:
           enabled: true
           name: cctv-collector-config
           data:
+            TZ: "Asia/Shanghai"
             CCTV_RTSP_URL: "rtsp://admin:ga32565624@10.0.1.20:554/stream1"
             CCTV_BUFFER_DIR: "/mnt/buffer/cctv"
             CCTV_SEGMENT_SECONDS: "900"
