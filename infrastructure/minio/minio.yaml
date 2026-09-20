@@ -22,7 +22,7 @@ metadata:
   labels:
     app: minio
 spec:
-  replicas: 1
+  replicas: 0 # 🎯 设为 0 彻底销毁 Pod 实例与释放资源，完整保留配置图纸
   strategy:
     type: Recreate
   selector:
