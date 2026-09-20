@@ -48,7 +48,7 @@ spec:
             CCTV_UPLOADER_MIN_FILE_AGE_SECONDS: "60"
             CCTV_UPLOADER_MAX_CONCURRENT_UPLOADS: "1"
             CCTV_UPLOADER_CLEANUP_POLICY: "DELETE"
-            CCTV_UPLOADER_SCAN_CRON_EXPRESSION: "0 */2 * * * ?"
+            CCTV_UPLOADER_SCAN_CRON_EXPRESSION: "0 */5 * * * ?"
 
         livenessProbe:
           enabled: true
