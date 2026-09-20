@@ -1,0 +1,95 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cctv-uploader
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nvd11/my-shared-helm-charts.git
+    path: charts/generic-web-service-v2
+    targetRevision: main
+    helm:
+      values: |
+        replicaCount: 1
+        containerPort: 8082
+
+        nameOverride: cctv-uploader
+
+        image:
+          repository: ghcr.io/nvd11/cctv-uploader-service
+          digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+          pullPolicy: IfNotPresent
+
+        envFrom:
+          - configMapRef:
+              name: cctv-uploader-config
+
+        volumeMounts:
+          - name: cctv-buffer-vol
+            mountPath: /mnt/buffer/cctv
+
+        volumes:
+          - name: cctv-buffer-vol
+            hostPath:
+              path: /home/gateman/cctv-buffer
+              type: DirectoryOrCreate
+
+        configMap:
+          enabled: true
+          name: cctv-uploader-config
+          data:
+            CCTV_UPLOADER_BUFFER_DIR: "/mnt/buffer/cctv"
+            CCTV_UPLOADER_ALIST_ENDPOINT: "http://10.0.1.227:5244/dav"
+            CCTV_UPLOADER_ALIST_USERNAME: "gateman"
+            CCTV_UPLOADER_ALIST_PASSWORD: "ga32565624"
+            CCTV_UPLOADER_REMOTE_BASE_DIR: "/Quark/CCTV_Records"
+            CCTV_UPLOADER_LOCATION_NAME: "锦绣世家_客厅"
+            CCTV_UPLOADER_MIN_FILE_AGE_SECONDS: "60"
+            CCTV_UPLOADER_MAX_CONCURRENT_UPLOADS: "1"
+            CCTV_UPLOADER_CLEANUP_POLICY: "DELETE"
+            CCTV_UPLOADER_SCAN_CRON_EXPRESSION: "0 */5 * * * ?"
+
+        livenessProbe:
+          enabled: true
+          path: /q/health/live
+          port: 8082
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          enabled: true
+          path: /q/health/ready
+          port: 8082
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        service:
+          type: ClusterIP
+          port: 8082
+
+        route:
+          enabled: true
+          parentGateway: kong-main-gateway
+          parentGatewayNamespace: default
+          path: /cctv-uploader
+          pathType: PathPrefix
+          annotations:
+            konghq.com/strip-path: "true"
+
+        nodeSelector:
+          kubernetes.io/hostname: radxa-cubie-a7a
+
+  destination:
+    name: tencent-dp1-cluster
+    namespace: cctv-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
