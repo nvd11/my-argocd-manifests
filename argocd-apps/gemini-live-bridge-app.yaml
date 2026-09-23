@@ -18,7 +18,13 @@ spec:
         nodeSelector:
           kubernetes.io/arch: "arm64"
           kubernetes.io/hostname: "free-arm-vm"
-        
+
+        envFrom:
+          - configMapRef:
+              name: gemini-live-bridge-config
+          - secretRef:
+              name: gemini-live-bridge-secrets
+
         image:
           repository: ghcr.io/nvd11/gemini-live-bridge
           tag: sha-8f1073c584e7e590485813756a8638d5bea39cdd
