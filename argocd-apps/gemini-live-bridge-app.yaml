@@ -21,7 +21,7 @@ spec:
         
         image:
           repository: ghcr.io/nvd11/gemini-live-bridge
-          tag: b58e24a896d8e20f92b77a7b973c1d9b4b029288
+          tag: 2ca5a67f96fc21f9940dab3ee9c7f138cb01af6a
           pullPolicy: IfNotPresent
           
         livenessProbe:
