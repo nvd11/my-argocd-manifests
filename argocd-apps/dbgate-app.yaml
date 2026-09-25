@@ -7,8 +7,8 @@ spec:
   project: default
   source:
     repoURL: 'https://github.com/nvd11/my-shared-helm-charts.git'
-    path: charts/generic-web-service
-    targetRevision: 'v1.1.3'
+    path: charts/generic-web-service-v2
+    targetRevision: main
     helm:
       values: |
         replicaCount: 1
@@ -25,14 +25,91 @@ spec:
         env:
           - name: WEB_ROOT
             value: /dbgate
+          - name: CONNECTIONS
+            value: "cockroach,mysql,neon"
+
+          # === 1. CockroachDB Serverless 10GB ===
+          - name: LABEL_cockroach
+            value: "CockroachDB 10GB (Serverless)"
+          - name: ENGINE_cockroach
+            value: "postgres@dbgate-plugin-postgres"
+          - name: SERVER_cockroach
+            value: "brief-titan-32937.j77.aws-ap-southeast-1.cockroachlabs.cloud"
+          - name: PORT_cockroach
+            value: "26257"
+          - name: USER_cockroach
+            value: "jason"
+          - name: DATABASE_cockroach
+            value: "defaultdb"
+          - name: USE_SSL_cockroach
+            value: "true"
+
+          # === 2. MySQL HeatWave (OCI) ===
+          - name: LABEL_mysql
+            value: "MySQL HeatWave (OCI)"
+          - name: ENGINE_mysql
+            value: "mysql@dbgate-plugin-mysql"
+          - name: SERVER_mysql
+            value: "161.118.240.218"
+          - name: PORT_mysql
+            value: "3306"
+          - name: USER_mysql
+            value: "litellm_user"
+          - name: DATABASE_mysql
+            value: "litellm_db"
+
+          # === 3. Neon Serverless PostgreSQL ===
+          - name: LABEL_neon
+            value: "Neon PostgreSQL (Serverless)"
+          - name: ENGINE_neon
+            value: "postgres@dbgate-plugin-postgres"
+          - name: SERVER_neon
+            value: "ep-bitter-sky-azfg5i09-pooler.c-3.ap-southeast-1.aws.neon.tech"
+          - name: PORT_neon
+            value: "5432"
+          - name: USER_neon
+            value: "neondb_owner"
+          - name: DATABASE_neon
+            value: "neondb"
+          - name: USE_SSL_neon
+            value: "true"
+
+        envFrom:
+          - secretRef:
+              name: dbgate-db-secrets
+
+        # 🎯 方案一：External Secrets Operator 自动拉取 OCI Vault 密文，Git 零明文残留！
+        externalSecret:
+          enabled: true
+          refreshInterval: 1h
+          secretStoreRef:
+            name: oci-vault-store
+            kind: SecretStore
+          target:
+            name: dbgate-db-secrets
+            creationPolicy: Owner
+          data:
+            - secretKey: PASSWORD_cockroach
+              remoteRef:
+                key: litellm-cockroach-password
+            - secretKey: PASSWORD_mysql
+              remoteRef:
+                key: litellm-mysql-password
+            - secretKey: PASSWORD_neon
+              remoteRef:
+                key: litellm-neon-password
 
         livenessProbe:
+          enabled: true
           path: /dbgate/index.html
+          port: 3000
           initialDelaySeconds: 15
           periodSeconds: 20
 
         readinessProbe:
+          enabled: true
           path: /dbgate/index.html
+          port: 3000
           initialDelaySeconds: 15
           periodSeconds: 20
 
@@ -46,6 +123,7 @@ spec:
           enabled: true
           parentGateway: kong-main-gateway
           path: /dbgate
+          pathType: PathPrefix
   destination:
     name: 'tencent-dp1-cluster'
     namespace: default
