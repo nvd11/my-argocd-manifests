@@ -1,0 +1,21 @@
+apiVersion: external-secrets.io/v1
+kind: SecretStore
+metadata:
+  name: oci-vault-store
+  namespace: default
+spec:
+  provider:
+    oracle:
+      auth:
+        secretRef:
+          fingerprint:
+            key: fingerprint
+            name: oci-vault-reader
+          privatekey:
+            key: privateKey
+            name: oci-vault-reader
+        tenancy: ocid1.tenancy.oc1..aaaaaaaa637exp5j4jghtg3lb4x2atqyvl5jllet5cubgsauhsc3mvgm5nga
+        user: ocid1.user.oc1..aaaaaaaa3fcoxuuzcdtwav4mcsqwxznzsarmj6ctugtnravseu5i5hst7neq
+      principalType: UserPrincipal
+      region: ap-singapore-1
+      vault: ocid1.vault.oc1.ap-singapore-1.gzviwf7saagpu.abzwsljrsb4del3q4df2zere7manjfm2dbjejvywf4qeh3lydtm74qgvjswa
