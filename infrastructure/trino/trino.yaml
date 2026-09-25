@@ -90,7 +90,7 @@ spec:
     - name: http
       port: 8080
       targetPort: 8080
-      nodePort: 38080 # 🎯 局域网端口设为 38080 (防与 NUC 宿主机 Kodi 的 8080 冲突)
+      nodePort: 30880 # 🎯 局域网端口设为 30880 (K8s NodePort 标准有效区间 30000-32767，防与 Kodi 8080 冲突)
   selector:
     app: trino
 ---
