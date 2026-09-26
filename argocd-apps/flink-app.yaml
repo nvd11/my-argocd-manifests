@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: flink
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3" # 🎯 基础设施同步波次 3 (与 Trino 同期)
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/nvd11/my-argocd-manifests.git'
+    path: infrastructure/flink
+    targetRevision: HEAD
+  destination:
+    name: 'tencent-dp1-cluster' # 🎯 部署到腾讯云/本地混合 K3s 业务集群
+    namespace: flink
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+  ignoreDifferences:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      jsonPointers:
+        - /spec/parentRefs/0/group
+        - /spec/parentRefs/0/kind
+        - /status
