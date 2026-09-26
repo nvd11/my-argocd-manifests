@@ -1,10 +1,10 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: flink
+  name: flink-sms-etl
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "3" # 🎯 基础设施同步波次 3 (与 Trino 同期)
+    argocd.argoproj.io/sync-wave: "4" # 🎯 业务批处理层
 spec:
   project: default
   source:
@@ -12,7 +12,7 @@ spec:
     path: infrastructure/flink
     targetRevision: HEAD
   destination:
-    name: 'tencent-dp1-cluster' # 🎯 部署到腾讯云/本地混合 K3s 业务集群
+    name: 'tencent-dp1-cluster'
     namespace: flink
   syncPolicy:
     automated:
@@ -20,10 +20,3 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-  ignoreDifferences:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      jsonPointers:
-        - /spec/parentRefs/0/group
-        - /spec/parentRefs/0/kind
-        - /status
