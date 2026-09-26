@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: flink-sms-etl
+  name: flink
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "4" # 🎯 业务批处理层
