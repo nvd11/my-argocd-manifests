@@ -11,10 +11,15 @@ metadata:
 data:
   iceberg.properties: |
     connector.name=iceberg
-    iceberg.file-format=PARQUET
+    iceberg.catalog.type=jdbc
+    iceberg.jdbc-catalog.driver-class=org.postgresql.Driver
+    iceberg.jdbc-catalog.connection-url=jdbc:postgresql://brief-titan-32937.j77.aws-ap-southeast-1.cockroachlabs.cloud:26257/finance-db?sslmode=require
+    iceberg.jdbc-catalog.connection-user=finance_user
+    iceberg.jdbc-catalog.connection-password=qqMHLcNdtzrNB1hh
+    iceberg.jdbc-catalog.default-warehouse-dir=s3://sms-flink-etl/iceberg/warehouse
 
     # Cloudflare R2 S3 兼容连接配置
-    fs.native-s3.enabled=true
+    fs.s3.enabled=true
     s3.endpoint=https://8ac25a3a0ac482af1dbd6c65e118693e.r2.cloudflarestorage.com
     s3.path-style-access=true
     s3.region=auto
