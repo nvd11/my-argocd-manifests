@@ -1,26 +1,26 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: sms-flink-lakehouse
+  name: nuc-batch-runner # 🎯 通用 NUC 批处理计算发射架 (彻底消灭业务特定字眼)
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "4" # 🎯 业务批处理层
+    argocd.argoproj.io/sync-wave: "4" # 🎯 批处理算力层
 spec:
   project: default
   source:
     repoURL: 'https://github.com/nvd11/my-shared-helm-charts.git'
-    path: charts/generic-batch-job # 🎯 采用统一纯粹的通用批处理模具，彻底剥离业务特定字眼
+    path: charts/generic-batch-job # 🎯 引用纯粹中立的通用批处理模具
     targetRevision: HEAD
     helm:
       values: |
-        fullnameOverride: sms-flink-lakehouse-job
+        fullnameOverride: nuc-batch-runner
 
-        # 🎯 核心铁律：本地时钟彻底挂起！100% 由云端 AWS EventBridge 吹哨唤醒，杜绝双重调度冲突
+        # 🎯 核心铁律：本地时钟彻底挂起！100% 由外部指令/云端吹哨唤醒，杜绝双重调度冲突
         suspend: true
-        schedule: "0 0 31 2 *"
+        schedule: "0 0 31 2 *" # 纯静态模版占位符 (2月31日永不自动触发)
 
         image:
-          repository: ghcr.io/nvd11/sms-flink-batch-etl
+          repository: ghcr.io/nvd11/sms-flink-batch-etl # 默认保底基线镜像 (随时可通过参数覆盖换成视频清理等其他业务镜像)
           tag: latest
           pullPolicy: Always
 
@@ -36,7 +36,7 @@ spec:
             memory: "2Gi"
   destination:
     name: 'tencent-dp1-cluster'
-    namespace: finance
+    namespace: batch-jobs # 🎯 独立的通用批处理命名空间
   syncPolicy:
     automated:
       prune: true
