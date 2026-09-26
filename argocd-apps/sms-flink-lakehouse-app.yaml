@@ -8,9 +8,32 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: 'https://github.com/nvd11/my-argocd-manifests.git'
-    path: infrastructure/sms-flink-lakehouse
+    repoURL: 'https://github.com/nvd11/my-shared-helm-charts.git'
+    path: charts/generic-batch-job # 🎯 采用统一纯粹的通用批处理模具，彻底剥离业务特定字眼
     targetRevision: HEAD
+    helm:
+      values: |
+        fullnameOverride: sms-flink-lakehouse-job
+
+        # 🎯 核心铁律：本地时钟彻底挂起！100% 由云端 AWS EventBridge 吹哨唤醒，杜绝双重调度冲突
+        suspend: true
+        schedule: "0 0 31 2 *"
+
+        image:
+          repository: ghcr.io/nvd11/sms-flink-batch-etl
+          tag: latest
+          pullPolicy: Always
+
+        nodeSelector:
+          kubernetes.io/hostname: "nuc" # 🔒 严格锁定 Intel NUC 算力节点
+
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2000m"
+            memory: "2Gi"
   destination:
     name: 'tencent-dp1-cluster'
     namespace: finance
