@@ -18,6 +18,7 @@ spec:
         # 🎯 核心铁律：本地时钟彻底挂起！100% 由外部指令/云端吹哨唤醒，杜绝双重调度冲突
         suspend: true
         schedule: "0 0 31 2 *" # 纯静态模版占位符 (2月31日永不自动触发)
+        ttlSecondsAfterFinished: 60 # 🎯 K8s 原生优雅回收倒计时 (跑完留存 60 秒供 Fluent Bit 从容采集日志，随后由内核自动销毁)
 
         image:
           repository: ghcr.io/nvd11/helloworld-job # 默认保底基线镜像 (探活验证镜像，随时可通过参数覆盖换成视频清理等业务镜像)
