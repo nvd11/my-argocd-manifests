@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: flink
+  name: sms-flink-lakehouse
   namespace: argocd
   annotations:
     argocd.argoproj.io/sync-wave: "4" # 🎯 业务批处理层
@@ -9,11 +9,11 @@ spec:
   project: default
   source:
     repoURL: 'https://github.com/nvd11/my-argocd-manifests.git'
-    path: infrastructure/flink
+    path: applications/sms-flink-lakehouse
     targetRevision: HEAD
   destination:
     name: 'tencent-dp1-cluster'
-    namespace: flink
+    namespace: finance
   syncPolicy:
     automated:
       prune: true
