@@ -20,7 +20,7 @@ spec:
         schedule: "0 0 31 2 *" # 纯静态模版占位符 (2月31日永不自动触发)
 
         image:
-          repository: ghcr.io/nvd11/sms-flink-batch-etl # 默认保底基线镜像 (随时可通过参数覆盖换成视频清理等其他业务镜像)
+          repository: ghcr.io/nvd11/helloworld-job # 默认保底基线镜像 (探活验证镜像，随时可通过参数覆盖换成视频清理等业务镜像)
           tag: latest
           pullPolicy: Always
 
