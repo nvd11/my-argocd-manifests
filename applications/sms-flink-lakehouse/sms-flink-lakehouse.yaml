@@ -1,19 +1,19 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: flink
+  name: finance
 ---
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: flink-sms-batch-etl
-  namespace: flink
+  name: sms-flink-lakehouse-job
+  namespace: finance
   labels:
-    app: flink-sms-etl
+    app: sms-flink-lakehouse
 spec:
-  # 🎯 模式 B 纯批处理算完即焚：平时 0 进程、0 内存占用
-  # 调度计划: 每 4 小时触发一次 (对应北京时间: 08:00, 12:00, 16:00, 20:00, 00:00, 04:00)
-  schedule: "0 */4 * * *"
+  # 🎯 核心铁律：本地时钟彻底挂起！100% 由云端 AWS EventBridge 精准调度吹哨，杜绝双重调度冲突
+  suspend: true
+  schedule: "0 0 31 2 *" # 纯静态模版占位符（2月31日永不自动触发）
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
   failedJobsHistoryLimit: 5
@@ -22,10 +22,10 @@ spec:
       template:
         metadata:
           labels:
-            app: flink-sms-etl
+            app: sms-flink-lakehouse
         spec:
           nodeSelector:
-            kubernetes.io/hostname: "nuc" # 🔒 核心调度约束：钉在 Intel NUC 节点上
+            kubernetes.io/hostname: "nuc" # 🔒 严格锁定 Intel NUC 算力节点
           restartPolicy: OnFailure
           containers:
             - name: flink-batch-runner
