@@ -29,7 +29,7 @@ spec:
           restartPolicy: OnFailure
           containers:
             - name: flink-batch-runner
-              image: ghcr.io/nvd11/sms-flink-etl:latest
+              image: ghcr.io/nvd11/sms-flink-batch-etl:latest
               imagePullPolicy: Always
               resources:
                 requests:
