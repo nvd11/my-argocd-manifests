@@ -3,219 +3,38 @@ kind: Namespace
 metadata:
   name: flink
 ---
-apiVersion: v1
-kind: ConfigMap
+apiVersion: batch/v1
+kind: CronJob
 metadata:
-  name: flink-config
-  namespace: flink
-data:
-  flink-conf.yaml: |+
-    jobmanager.rpc.address: flink-jobmanager
-    jobmanager.rpc.port: 6123
-    jobmanager.bind-host: 0.0.0.0
-    jobmanager.memory.process.size: 1536m
-    taskmanager.bind-host: 0.0.0.0
-    taskmanager.memory.process.size: 2048m
-    taskmanager.numberOfTaskSlots: 2
-    parallelism.default: 2
-    blob.server.port: 6124
-    query.server.port: 6125
-    rest.address: flink-jobmanager
-    rest.bind-address: 0.0.0.0
-    rest.port: 8081
-  log4j-console.properties: |+
-    rootLogger.level = INFO
-    rootLogger.appenderRefs = R
-    rootLogger.appenderRef.R.ref = R
-    appender.R.type = Console
-    appender.R.name = R
-    appender.R.layout.type = PatternLayout
-    appender.R.layout.pattern = %d{yyyy-MM-dd HH:mm:ss,SSS} %-5p %-60c %x - %m%n
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: flink-jobmanager
+  name: flink-sms-batch-etl
   namespace: flink
   labels:
-    app: flink
-    component: jobmanager
+    app: flink-sms-etl
 spec:
-  type: ClusterIP
-  ports:
-    - name: rpc
-      port: 6123
-      targetPort: 6123
-    - name: blob
-      port: 6124
-      targetPort: 6124
-    - name: rest
-      port: 8081
-      targetPort: 8081
-  selector:
-    app: flink
-    component: jobmanager
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: flink-jobmanager-nodeport
-  namespace: flink
-  labels:
-    app: flink
-    component: jobmanager
-spec:
-  type: NodePort
-  ports:
-    - name: rest
-      port: 8081
-      targetPort: 8081
-      nodePort: 30881 # 🎯 局域网直连访问端口 (避开 Kodi 8080 与 Trino 30880)
-  selector:
-    app: flink
-    component: jobmanager
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: flink-jobmanager
-  namespace: flink
-  labels:
-    app: flink
-    component: jobmanager
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: flink
-      component: jobmanager
-  template:
-    metadata:
-      labels:
-        app: flink
-        component: jobmanager
+  # 🎯 模式 B 纯批处理算完即焚：平时 0 进程、0 内存占用
+  # 调度计划: 每 4 小时触发一次 (对应北京时间: 08:00, 12:00, 16:00, 20:00, 00:00, 04:00)
+  schedule: "0 */4 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: "nuc" # 🔒 核心调度约束：钉在 Intel NUC 节点上
-      containers:
-        - name: jobmanager
-          image: flink:1.19.3-java17
-          args: ["jobmanager"]
-          ports:
-            - name: rpc
-              containerPort: 6123
-            - name: blob
-              containerPort: 6124
-            - name: rest
-              containerPort: 8081
-          resources:
-            requests:
-              cpu: "500m"
-              memory: "1024Mi"
-            limits:
-              cpu: "1500m"
-              memory: "2048Mi"
-          readinessProbe:
-            httpGet:
-              path: /overview
-              port: 8081
-            initialDelaySeconds: 15
-            periodSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /overview
-              port: 8081
-            initialDelaySeconds: 30
-            periodSeconds: 15
-          volumeMounts:
-            - name: flink-config-volume
-              mountPath: /opt/flink/conf
-      volumes:
-        - name: flink-config-volume
-          configMap:
-            name: flink-config
-            items:
-              - key: flink-conf.yaml
-                path: flink-conf.yaml
-              - key: log4j-console.properties
-                path: log4j-console.properties
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: flink-taskmanager
-  namespace: flink
-  labels:
-    app: flink
-    component: taskmanager
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: flink
-      component: taskmanager
-  template:
-    metadata:
-      labels:
-        app: flink
-        component: taskmanager
-    spec:
-      nodeSelector:
-        kubernetes.io/hostname: "nuc" # 🔒 核心调度约束：钉在 Intel NUC 节点上
-      containers:
-        - name: taskmanager
-          image: flink:1.19.3-java17
-          args: ["taskmanager"]
-          ports:
-            - name: data
-              containerPort: 6121
-            - name: rpc
-              containerPort: 6122
-            - name: query
-              containerPort: 6125
-          resources:
-            requests:
-              cpu: "500m"
-              memory: "1536Mi"
-            limits:
-              cpu: "2000m"
-              memory: "3072Mi"
-          volumeMounts:
-            - name: flink-config-volume
-              mountPath: /opt/flink/conf
-      volumes:
-        - name: flink-config-volume
-          configMap:
-            name: flink-config
-            items:
-              - key: flink-conf.yaml
-                path: flink-conf.yaml
-              - key: log4j-console.properties
-                path: log4j-console.properties
----
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
-metadata:
-  name: flink-route
-  namespace: flink
-  labels:
-    app: flink
-spec:
-  parentRefs:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      name: kong-main-gateway
-      namespace: default
-  hostnames:
-    - "flink.jppwl.asia"
-  rules:
-    - backendRefs:
-        - group: ""
-          kind: Service
-          name: flink-jobmanager
-          port: 8081
-          weight: 1
-      matches:
-        - path:
-            type: PathPrefix
-            value: /
+      template:
+        metadata:
+          labels:
+            app: flink-sms-etl
+        spec:
+          nodeSelector:
+            kubernetes.io/hostname: "nuc" # 🔒 核心调度约束：钉在 Intel NUC 节点上
+          restartPolicy: OnFailure
+          containers:
+            - name: flink-batch-runner
+              image: ghcr.io/nvd11/sms-flink-etl:latest
+              imagePullPolicy: Always
+              resources:
+                requests:
+                  cpu: "500m"
+                  memory: "1Gi"
+                limits:
+                  cpu: "2000m"
+                  memory: "2Gi"
