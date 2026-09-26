@@ -6,6 +6,19 @@ metadata:
 apiVersion: v1
 kind: ConfigMap
 metadata:
+  name: trino-config
+  namespace: trino
+data:
+  config.properties: |
+    coordinator=true
+    node-scheduler.include-coordinator=true
+    http-server.http.port=8080
+    http-server.process-forwarded=true
+    discovery.uri=http://localhost:8080
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
   name: trino-catalog-iceberg
   namespace: trino
 data:
@@ -78,10 +91,16 @@ spec:
             - name: iceberg-catalog
               mountPath: /etc/trino/catalog/iceberg.properties
               subPath: iceberg.properties
+            - name: trino-config
+              mountPath: /etc/trino/config.properties
+              subPath: config.properties
       volumes:
         - name: iceberg-catalog
           configMap:
             name: trino-catalog-iceberg
+        - name: trino-config
+          configMap:
+            name: trino-config
 ---
 apiVersion: v1
 kind: Service
