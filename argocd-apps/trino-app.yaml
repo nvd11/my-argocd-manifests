@@ -8,9 +8,102 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: 'https://github.com/nvd11/my-argocd-manifests.git'
-    path: infrastructure/trino
+    repoURL: 'https://github.com/nvd11/my-shared-helm-charts.git'
+    path: charts/generic-web-service-v2 # 🎯 采用统一纯粹的通用服务模具，消灭 infrastructure/trino 孤儿目录
     targetRevision: HEAD
+    helm:
+      values: |
+        fullnameOverride: trino
+        replicaCount: 1
+        containerPort: 8080
+
+        image:
+          repository: trinodb/trino
+          tag: latest
+          pullPolicy: IfNotPresent
+
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1536Mi"
+          limits:
+            cpu: "2000m"
+            memory: "3584Mi"
+
+        nodeSelector:
+          kubernetes.io/hostname: "nuc" # 🔒 严格锁定 Intel NUC 节点
+
+        service:
+          type: NodePort
+          port: 8080
+          nodePort: 30880 # 🎯 局域网 NodePort
+
+        route:
+          enabled: true
+          parentGateway: kong-main-gateway
+          parentGatewayNamespace: default
+          hostnames:
+            - "trino.jppwl.asia"
+          pathType: PathPrefix
+          path: /
+
+        livenessProbe:
+          enabled: true
+          path: /v1/info
+          port: 8080
+          initialDelaySeconds: 45
+          periodSeconds: 20
+
+        readinessProbe:
+          enabled: true
+          path: /v1/info
+          port: 8080
+          initialDelaySeconds: 25
+          periodSeconds: 10
+
+        extraConfigMaps:
+          trino-config:
+            data:
+              config.properties: |
+                coordinator=true
+                node-scheduler.include-coordinator=true
+                http-server.http.port=8080
+                http-server.process-forwarded=true
+                discovery.uri=http://localhost:8080
+          trino-catalog-iceberg:
+            data:
+              iceberg.properties: |
+                connector.name=iceberg
+                iceberg.catalog.type=jdbc
+                iceberg.jdbc-catalog.catalog-name=finance
+                iceberg.jdbc-catalog.driver-class=org.postgresql.Driver
+                iceberg.jdbc-catalog.connection-url=jdbc:postgresql://brief-titan-32937.j77.aws-ap-southeast-1.cockroachlabs.cloud:26257/finance-db?sslmode=require
+                iceberg.jdbc-catalog.connection-user=finance_user
+                iceberg.jdbc-catalog.connection-password=qqMHLcNdtzrNB1hh
+                iceberg.jdbc-catalog.default-warehouse-dir=s3://sms-flink-etl/iceberg/warehouse
+                fs.s3.enabled=true
+                s3.endpoint=https://8ac25a3a0ac482af1dbd6c65e118693e.r2.cloudflarestorage.com
+                s3.path-style-access=true
+                s3.region=auto
+                s3.aws-access-key=35db4e6908dafcfefb36a4384fc87634
+                s3.aws-secret-key=aea44e90549d73e4aaadf7de32d02448924fa923ee61eb341b10f789c6233478
+
+        volumes:
+          - name: trino-config
+            configMap:
+              name: trino-config
+          - name: iceberg-catalog
+            configMap:
+              name: trino-catalog-iceberg
+
+        volumeMounts:
+          - name: trino-config
+            mountPath: /etc/trino/config.properties
+            subPath: config.properties
+          - name: iceberg-catalog
+            mountPath: /etc/trino/catalog/iceberg.properties
+            subPath: iceberg.properties
+
   destination:
     name: 'tencent-dp1-cluster'
     namespace: trino
