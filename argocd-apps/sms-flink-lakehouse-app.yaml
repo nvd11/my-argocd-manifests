@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: 'https://github.com/nvd11/my-argocd-manifests.git'
-    path: applications/sms-flink-lakehouse
+    path: infrastructure/sms-flink-lakehouse
     targetRevision: HEAD
   destination:
     name: 'tencent-dp1-cluster'
