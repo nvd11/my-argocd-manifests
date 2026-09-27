@@ -71,7 +71,6 @@ spec:
                 http-server.process-forwarded=true
                 http-server.authentication.type=PASSWORD
                 http-server.authentication.allow-insecure-over-http=true
-                internal-communication.shared-secret=trino-cluster-secret-hsbc1234
                 discovery.uri=http://localhost:8080
               password-authenticator.properties: |
                 password-authenticator.name=file
