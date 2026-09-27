@@ -69,7 +69,15 @@ spec:
                 node-scheduler.include-coordinator=true
                 http-server.http.port=8080
                 http-server.process-forwarded=true
+                http-server.authentication.type=PASSWORD
+                http-server.authentication.allow-insecure-over-http=true
                 discovery.uri=http://localhost:8080
+              password-authenticator.properties: |
+                password-authenticator.name=file
+                file.password-file=/etc/trino/password.db
+              password.db: |
+                admin:$2y$10$Qgqw9MDDTcRfQiFfNIKQZekygQCS95EOv.iYG3rPKgWRJo/ELaAsm
+                jason:$2y$10$Qgqw9MDDTcRfQiFfNIKQZekygQCS95EOv.iYG3rPKgWRJo/ELaAsm
           trino-catalog-iceberg:
             data:
               iceberg.properties: |
@@ -100,6 +108,12 @@ spec:
           - name: trino-config
             mountPath: /etc/trino/config.properties
             subPath: config.properties
+          - name: trino-config
+            mountPath: /etc/trino/password-authenticator.properties
+            subPath: password-authenticator.properties
+          - name: trino-config
+            mountPath: /etc/trino/password.db
+            subPath: password.db
           - name: iceberg-catalog
             mountPath: /etc/trino/catalog/iceberg.properties
             subPath: iceberg.properties
