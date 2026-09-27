@@ -11,7 +11,7 @@ spec:
     targetRevision: main
     helm:
       values: |
-        replicaCount: 1
+        replicaCount: 0 # 🎯 设为 0 卸载实例与释放算力，保留配置图纸
         containerPort: 3000
 
         nodeSelector:
@@ -120,7 +120,7 @@ spec:
             konghq.com/plugins: oauth2-forward-auth
 
         route:
-          enabled: true
+          enabled: false # 🎯 清理 HTTPRoute，彻底下线网关路由
           parentGateway: kong-main-gateway
           path: /dbgate
           pathType: PathPrefix
