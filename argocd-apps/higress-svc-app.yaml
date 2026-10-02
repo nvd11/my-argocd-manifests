@@ -12,18 +12,14 @@ spec:
   project: default
   sources:
     # --------------------------------------------------------------------------
-    # 1. 官方 Higress 旗舰 Helm Chart (自动生命周期管理 Controller 与核心 CRD)
+    # 1. 官方 Higress 核心 Helm Chart (纯净核心：Controller、Envoy Gateway 与核心 CRD)
     # --------------------------------------------------------------------------
-    - chart: higress
+    - chart: higress-core
       repoURL: https://higress.io/helm-charts
       targetRevision: 2.0.7
       helm:
         valueFiles:
           - $values/values.yaml
-        values: |
-          # 显式禁用官方冗余且耗内存的 Web 控制台 (我们使用量身定制的专属可观测看板)
-          console:
-            enabled: false
 
     # --------------------------------------------------------------------------
     # 2. 挂载 my-higress-svc 仓库根目录 (自动同步 ai-proxy, hermes-passthrough, secrets)
