@@ -1,0 +1,60 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: higress-svc
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: higress-ai-gateway
+    app.kubernetes.io/part-of: my-higress-svc
+spec:
+  project: default
+  sources:
+    # --------------------------------------------------------------------------
+    # 1. 官方 Higress 旗舰 Helm Chart (自动生命周期管理 Controller 与核心 CRD)
+    # --------------------------------------------------------------------------
+    - chart: higress
+      repoURL: https://higress.io/helm-charts
+      targetRevision: 2.0.7
+      helm:
+        valueFiles:
+          - $values/values.yaml
+        values: |
+          # 显式禁用官方冗余且耗内存的 Web 控制台 (我们使用量身定制的专属可观测看板)
+          console:
+            enabled: false
+
+    # --------------------------------------------------------------------------
+    # 2. 挂载 my-higress-svc 仓库根目录 (自动同步 ai-proxy, hermes-passthrough, secrets)
+    # --------------------------------------------------------------------------
+    - repoURL: https://github.com/nvd11/my-higress-svc.git
+      targetRevision: main
+      ref: values
+      path: .
+
+  destination:
+    name: tencent-dp1-cluster
+    namespace: higress-system
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+      - ServerSideApply=true
+
+  ignoreDifferences:
+    # 🎯 忽略由 ExternalSecrets Operator 动态从 OCI Vault 拉取并填充的真实密钥数据
+    - group: ""
+      kind: Secret
+      name: higress-ai-secrets
+      jsonPointers:
+        - /data
+    # 🎯 忽略 HTTPRoute 由网关动态写回的路由 status 状态
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      jsonPointers:
+        - /status
