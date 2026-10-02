@@ -77,7 +77,7 @@ spec:
                 iceberg.catalog.type=jdbc
                 iceberg.jdbc-catalog.catalog-name=finance
                 iceberg.jdbc-catalog.driver-class=org.postgresql.Driver
-                iceberg.jdbc-catalog.connection-url=jdbc:postgresql://brief-titan-32937.j77.aws-ap-southeast-1.cockroachlabs.cloud:26257/finance-db?sslmode=require
+                iceberg.jdbc-catalog.connection-url=jdbc:postgresql://brief-titan-32937.j77.aws-ap-southeast-1.cockroachlabs.cloud:26257/iceberg-catalog?sslmode=require
                 iceberg.jdbc-catalog.connection-user=finance_user
                 iceberg.jdbc-catalog.connection-password=qqMHLcNdtzrNB1hh
                 iceberg.jdbc-catalog.default-warehouse-dir=s3://sms-flink-etl/iceberg/warehouse
