@@ -49,6 +49,14 @@ spec:
       name: higress-ai-secrets
       jsonPointers:
         - /data
+    # 🎯 忽略 WasmPlugin 动态注入的真实密钥 (防止覆盖为占位符)
+    - group: extensions.higress.io
+      kind: WasmPlugin
+      name: ai-proxy
+      jsonPointers:
+        - /spec/defaultConfig/providers/0/apiTokens
+        - /spec/defaultConfig/providers/1/apiTokens
+        - /spec/defaultConfig/providers/2/apiTokens
     # 🎯 忽略 HTTPRoute 由网关动态写回的路由 status 状态
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
