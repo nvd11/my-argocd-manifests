@@ -23,7 +23,7 @@ spec:
         ttlSecondsAfterFinished: 60 # 🎯 K8s 原生优雅回收倒计时 (跑完留存 60 秒供 Fluent Bit 从容采集日志，随后由内核自动销毁)
 
         image:
-          repository: ghcr.io/nvd11/sms-gmail-r2-job # 默认生产 Flink 入湖批处理镜像
+          repository: ghcr.io/nvd11/sms-flink-batch-etl # 默认生产 Flink 入湖批处理镜像
           tag: latest
           pullPolicy: Always
 
