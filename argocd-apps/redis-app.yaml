@@ -12,6 +12,7 @@ spec:
       kind: Secret
       jsonPointers:
         - /data
+        - /stringData
   source:
     repoURL: 'https://github.com/nvd11/redis-deployment.git' # 🎯 子应用轮询自己的 repo：redis-deployment/k8s
     path: k8s
