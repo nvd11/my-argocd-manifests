@@ -21,7 +21,7 @@ spec:
 
         image:
           repository: ghcr.io/nvd11/my-higress-dashboard-backend
-          digest: sha256:23cbfb6fa3a49b043cb0a4a1822c911304559d002240338f122218f1fcab1e52
+          digest: sha256:b4950a97ff5477f9834d9053f9e0a9ad07086ee6b9101e20f2b504a41af7de71
           pullPolicy: IfNotPresent
 
         envFrom:
