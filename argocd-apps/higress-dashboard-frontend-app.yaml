@@ -1,0 +1,72 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: higress-dashboard-frontend
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: higress-dashboard-frontend
+    app.kubernetes.io/part-of: my-higress-svc
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nvd11/my-shared-helm-charts.git
+    path: charts/generic-web-service-v2
+    targetRevision: main
+    helm:
+      values: |
+        replicaCount: 1
+        containerPort: 80
+
+        image:
+          repository: ghcr.io/nvd11/my-higress-dashboard-frontend
+          tag: latest
+          pullPolicy: Always
+
+        livenessProbe:
+          enabled: true
+          path: /
+          port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 20
+          failureThreshold: 3
+
+        readinessProbe:
+          enabled: true
+          path: /
+          port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3
+
+        service:
+          type: ClusterIP
+          port: 80
+
+        route:
+          enabled: true
+          parentGateway: kong-main-gateway
+          path: /dashboard
+          pathType: PathPrefix
+          annotations:
+            konghq.com/plugins: oauth2-forward-auth
+
+        nodeSelector:
+          kubernetes.io/hostname: free-arm-vm
+
+  destination:
+    name: tencent-dp1-cluster
+    namespace: higress-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+  ignoreDifferences:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      jsonPointers:
+        - /status

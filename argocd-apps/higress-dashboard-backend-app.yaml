@@ -1,0 +1,122 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: higress-dashboard-backend
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: higress-dashboard-backend
+    app.kubernetes.io/part-of: my-higress-svc
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nvd11/my-shared-helm-charts.git
+    path: charts/generic-web-service-v2
+    targetRevision: main
+    helm:
+      values: |
+        replicaCount: 1
+        containerPort: 4000
+
+        image:
+          repository: ghcr.io/nvd11/my-higress-dashboard-backend
+          tag: latest
+          pullPolicy: Always
+
+        envFrom:
+          - configMapRef:
+              name: higress-backend-config
+          - secretRef:
+              name: higress-backend-secrets
+
+        configMap:
+          enabled: true
+          name: higress-backend-config
+          data:
+            PORT: "4000"
+            MYSQL_HOST: "161.118.240.218"
+            MYSQL_PORT: "3306"
+            MYSQL_USER: "litellm_user"
+            MYSQL_DB: "litellm_db"
+            REDIS_HOST: "redis.redis.svc.cluster.local"
+            REDIS_PORT: "6379"
+            DEFAULT_USD_TO_CNY_RATE: "7.23"
+            VICTORIALOGS_URL: "http://100.95.20.57:9428"
+
+        externalSecret:
+          enabled: true
+          refreshInterval: 1h
+          secretStoreRef:
+            name: oci-litellm-vault-store
+            kind: SecretStore
+          target:
+            name: higress-backend-secrets
+            creationPolicy: Owner
+          data:
+            - secretKey: MYSQL_PASSWORD
+              remoteRef:
+                key: litellm-mysql-password
+            - secretKey: REDIS_PASSWORD
+              remoteRef:
+                key: litellm-redis-password
+
+        livenessProbe:
+          enabled: true
+          path: /health/liveliness
+          port: 4000
+          initialDelaySeconds: 10
+          periodSeconds: 15
+          failureThreshold: 3
+
+        readinessProbe:
+          enabled: true
+          path: /health/readiness
+          port: 4000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 3
+
+        service:
+          type: ClusterIP
+          port: 4000
+          annotations:
+            konghq.com/read-timeout: "600000"
+            konghq.com/write-timeout: "600000"
+            konghq.com/connect-timeout: "60000"
+
+        route:
+          enabled: true
+          parentGateway: kong-main-gateway
+          path: /api/v1
+          pathType: PathPrefix
+          annotations:
+            konghq.com/strip-path: "false"
+            konghq.com/plugins: oauth2-forward-auth
+            konghq.com/read-timeout: "600000"
+            konghq.com/write-timeout: "600000"
+            konghq.com/connect-timeout: "60000"
+
+        nodeSelector:
+          kubernetes.io/hostname: free-arm-vm
+
+  destination:
+    name: tencent-dp1-cluster
+    namespace: higress-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      name: higress-backend-secrets
+      jsonPointers:
+        - /data
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      jsonPointers:
+        - /status
