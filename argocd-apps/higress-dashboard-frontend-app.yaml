@@ -47,7 +47,10 @@ spec:
         route:
           enabled: true
           parentGateway: kong-main-gateway
-          path: /dashboard
+          parentGatewayNamespace: default
+          hostnames:
+            - higressdashboard.jppwl.asia
+          path: /
           pathType: PathPrefix
           annotations:
             konghq.com/plugins: oauth2-forward-auth
