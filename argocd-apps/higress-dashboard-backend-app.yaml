@@ -88,6 +88,9 @@ spec:
         route:
           enabled: true
           parentGateway: kong-main-gateway
+          parentGatewayNamespace: default
+          hostnames:
+            - higressdashboard.jppwl.asia
           path: /api/v1
           pathType: PathPrefix
           annotations:
