@@ -21,8 +21,8 @@ spec:
 
         image:
           repository: ghcr.io/nvd11/my-higress-dashboard-backend
-          tag: latest
-          pullPolicy: Always
+          digest: sha256:61dc2f1b2d470e474dfba1760b2c10ce664297f9dde0785bd802fae7093327b3
+          pullPolicy: IfNotPresent
 
         envFrom:
           - configMapRef:
