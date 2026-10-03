@@ -21,8 +21,8 @@ spec:
 
         image:
           repository: ghcr.io/nvd11/my-higress-gemini-adapter
-          tag: latest
-          pullPolicy: Always
+          digest: sha256:148da533d828d4157d31ac14a5352dd9850c597dfc2f6ad6cc8c9d0ff8ca4a59
+          pullPolicy: IfNotPresent
 
         env:
           - name: PORT
