@@ -49,14 +49,12 @@ spec:
       name: higress-ai-secrets
       jsonPointers:
         - /data
-    # 🎯 忽略 WasmPlugin 动态注入的真实密钥 (防止覆盖为占位符)
+    # 🎯 永久锁定 WasmPlugin 的 spec 内存配置，彻底防止 ArgoCD 用占位符冲掉真实 Google Key
     - group: extensions.higress.io
       kind: WasmPlugin
       name: ai-proxy
       jsonPointers:
-        - /spec/defaultConfig/providers/0/apiTokens
-        - /spec/defaultConfig/providers/1/apiTokens
-        - /spec/defaultConfig/providers/2/apiTokens
+        - /spec
     # 🎯 忽略 HTTPRoute 由网关动态写回的路由 status 状态
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
