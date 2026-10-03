@@ -18,7 +18,7 @@ spec:
         # 🎯 核心铁律：本地时钟彻底挂起！100% 由外部指令/云端吹哨唤醒，杜绝双重调度冲突
         suspend: true
         schedule: "0 0 31 2 *" # 纯静态模版占位符 (2月31日永不自动触发)
-        activeDeadlineSeconds: 180 # 🎯 3分钟超时强杀保底 (防止任何意外挂起霸占 CPU)
+        activeDeadlineSeconds: 600 # 🎯 10分钟超时强杀保底 (从 180s 放宽，给冷启动与大批量落盘留足宽裕时间)
         backoffLimit: 0
         ttlSecondsAfterFinished: 60 # 🎯 K8s 原生优雅回收倒计时 (跑完留存 60 秒供 Fluent Bit 从容采集日志，随后由内核自动销毁)
 
