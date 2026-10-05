@@ -21,7 +21,7 @@ spec:
 
         image:
           repository: ghcr.io/nvd11/my-higress-gemini-adapter
-          digest: sha256:67dd62613fa8a22372fee17dcfd0f5aea2bad23c702c5f128a0d743a96159f71
+          digest: sha256:7afe96ed70e5c433c75303ff4495434574b612e625606320652a02c51c3c56b8
           pullPolicy: IfNotPresent
 
         env:
@@ -32,6 +32,11 @@ spec:
               secretKeyRef:
                 name: higress-ai-secrets
                 key: OPENAI_API_KEY_FREE_3
+          - name: A6_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: higress-ai-secrets
+                key: A6_API_KEY
 
         livenessProbe:
           enabled: true
