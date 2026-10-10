@@ -1,0 +1,67 @@
+name: Update Adapter Config from Upstream
+
+on:
+  repository_dispatch:
+    types: [update-adapter-config]
+
+concurrency:
+  group: gitops-config-update
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  update-config:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out manifests
+        uses: actions/checkout@v4
+
+      - name: Update config.yaml in higress-gemini-adapter-app.yaml
+        env:
+          CONFIG_B64: ${{ github.event.client_payload.config_base64 }}
+        run: |
+          set -euo pipefail
+          TARGET_FILE="argocd-apps/higress-gemini-adapter-app.yaml"
+          test -f "$TARGET_FILE"
+
+          RAW_CFG="$(echo "$CONFIG_B64" | base64 -d)"
+
+          python3 - <<EOF
+          import os, re, base64
+
+          target_file = "$TARGET_FILE"
+          with open(target_file, "r", encoding="utf-8") as f:
+              content = f.read()
+
+          b64 = os.environ.get("CONFIG_B64", "")
+          raw_cfg = base64.b64decode(b64).decode("utf-8")
+
+          # 增加 14 个空格缩进匹配 Helm Values 嵌套
+          indented = "\n".join("              " + line if line.strip() else "" for line in raw_cfg.splitlines())
+
+          pattern = r"(configMap:\s+enabled:\s+true\s+name:\s+higress-gemini-adapter-config\s+data:\s+config\.yaml:\s*\|\n)(?:[ \t]*\n| {14}[^\n]*\n)*"
+          replacement = r"\g<1>" + indented + "\n"
+
+          new_content = re.sub(pattern, replacement, content)
+
+          with open(target_file, "w", encoding="utf-8") as f:
+              f.write(new_content)
+
+          print("✅ Successfully updated config.yaml in", target_file)
+          EOF
+
+      - name: Commit and push changes
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "ℹ️ No configuration changes detected, nothing to commit."
+          else
+            git add argocd-apps/higress-gemini-adapter-app.yaml
+            git commit -m "feat(gitops): update config.yaml in higress-gemini-adapter via dispatch"
+            git push
+            echo "🚀 Successfully updated and pushed config.yaml!"
+          fi
