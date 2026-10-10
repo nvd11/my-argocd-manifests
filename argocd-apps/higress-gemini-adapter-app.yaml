@@ -27,6 +27,8 @@ spec:
         env:
           - name: PORT
             value: "8080"
+          - name: CONFIG_PATH
+            value: "/etc/higress/config.yaml"
           - name: GEMINI_API_KEY
             valueFrom:
               secretKeyRef:
@@ -37,6 +39,104 @@ spec:
               secretKeyRef:
                 name: higress-ai-secrets
                 key: A6_API_KEY
+
+        volumeMounts:
+          - name: higress-adapter-config-vol
+            mountPath: /etc/higress
+
+        volumes:
+          - name: higress-adapter-config-vol
+            configMap:
+              name: higress-gemini-adapter-config
+
+        configMap:
+          enabled: true
+          name: higress-gemini-adapter-config
+          data:
+            config.yaml: |
+              # ==============================================================================
+              # Higress AI Gateway / Adapter 声明式模型拓扑、渠道与费率配置 (对齐 LiteLLM 规范)
+              # ==============================================================================
+              # 支持运行时热加载与环境变量解析 (os.environ/KEY)
+              # ==============================================================================
+
+              model_list:
+                # 🟢 Google Gemini 原生直连系列
+                - model_name: "gemini-3.8-flash"
+                  aliases:
+                    - "gemini-3.8"
+                    - "gemini-2.5-flash"
+                  provider: "google-gemini"
+                  protocol: "gemini-native"
+                  upstream_url: "https://generativelanguage.googleapis.com"
+                  api_key: "os.environ/OPENAI_API_KEY_FREE_3"
+                  pricing:
+                    prompt_per_1m: 0.075
+                    completion_per_1m: 0.300
+                    cache_read_per_1m: 0.01875
+                    tiered_threshold: 128000
+                    tiered_multiplier: 2.0
+
+                # 🟢 Google Gemini 原生搜索增强系列
+                - model_name: "gemini-3.8-flash-search"
+                  aliases:
+                    - "gemini-3.8-flash:search"
+                  provider: "google-gemini"
+                  protocol: "gemini-native"
+                  upstream_url: "https://generativelanguage.googleapis.com"
+                  upstream_model: "gemini-3.8-flash"
+                  enable_search: true
+                  api_key: "os.environ/OPENAI_API_KEY_FREE_3"
+                  pricing:
+                    prompt_per_1m: 0.075
+                    completion_per_1m: 0.300
+                    cache_read_per_1m: 0.01875
+                    tiered_threshold: 128000
+                    tiered_multiplier: 2.0
+
+                # 🛡️ A6 API 渠道: kimi-k3
+                - model_name: "kimi-k3"
+                  aliases:
+                    - "kimi"
+                  provider: "a6api"
+                  protocol: "openai"
+                  upstream_url: "https://api.a6api.com/v1/chat/completions"
+                  upstream_model: "kimi-k3"
+                  api_key: "os.environ/A6_API_KEY"
+                  fallback: "gpt-5.6-luna"
+                  pricing:
+                    prompt_per_1m: 0.150
+                    completion_per_1m: 0.600
+                    cache_read_per_1m: 0.030
+
+                # 🛡️ A6 API 渠道: glm-5.3
+                - model_name: "glm-5.3"
+                  aliases:
+                    - "glm"
+                  provider: "a6api"
+                  protocol: "openai"
+                  upstream_url: "https://api.a6api.com/v1/chat/completions"
+                  upstream_model: "glm-5.3"
+                  api_key: "os.environ/A6_API_KEY"
+                  fallback: "gpt-5.6-luna"
+                  pricing:
+                    prompt_per_1m: 0.100
+                    completion_per_1m: 0.400
+                    cache_read_per_1m: 0.020
+
+                # 🛡️ A6 API 渠道: gpt-5.6-luna (兜底保底)
+                - model_name: "gpt-5.6-luna"
+                  aliases:
+                    - "luna"
+                  provider: "a6api"
+                  protocol: "openai"
+                  upstream_url: "https://api.a6api.com/v1/chat/completions"
+                  upstream_model: "gpt-5.6-luna"
+                  api_key: "os.environ/A6_API_KEY"
+                  pricing:
+                    prompt_per_1m: 0.250
+                    completion_per_1m: 1.000
+                    cache_read_per_1m: 0.125
 
         livenessProbe:
           enabled: true
