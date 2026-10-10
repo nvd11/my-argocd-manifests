@@ -40,7 +40,6 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - RespectIgnoreDifferences=true
-      - ServerSideApply=true
 
   ignoreDifferences:
     # 🎯 忽略由 ExternalSecrets Operator 动态从 OCI Vault 拉取并填充的真实密钥数据
@@ -49,12 +48,6 @@ spec:
       name: higress-ai-secrets
       jsonPointers:
         - /data
-    # 🎯 永久锁定 WasmPlugin 的 spec 内存配置，彻底防止 ArgoCD 用占位符冲掉真实 Google Key
-    - group: extensions.higress.io
-      kind: WasmPlugin
-      name: ai-proxy
-      jsonPointers:
-        - /spec
     # 🎯 忽略 HTTPRoute 由网关动态写回的路由 status 状态
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
