@@ -31,6 +31,8 @@ spec:
           stream:
             - containerPort: 6379
               servicePort: 6379
+            - containerPort: 9092
+              servicePort: 9092
         plugins:
           configMaps:
             - pluginName: custom-auth
