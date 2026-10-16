@@ -14,3 +14,14 @@ spec:
     allowedRoutes:
       namespaces:
         from: All
+  - name: https
+    port: 443
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: jppwl-asia-tls
+    allowedRoutes:
+      namespaces:
+        from: All
