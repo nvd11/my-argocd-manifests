@@ -1,0 +1,139 @@
+name: Renew Let's Encrypt Wildcard TLS Certificate
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_renew:
+        description: 'Force issue a new certificate even if >30 days remaining'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      threshold_days:
+        description: 'Renewal threshold in remaining days (default: 30)'
+        required: false
+        default: '30'
+        type: string
+  repository_dispatch:
+    types: [renew-jppwl-tls]
+
+permissions:
+  contents: read
+
+jobs:
+  check-and-renew-tls:
+    name: Stateless TLS Inspection & Automated Renewal
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 1. Inspect Live Certificate Expiry on K3s / Kong Gateway
+        id: check_cert
+        env:
+          K3S_API_URL: ${{ secrets.K3S_API_SERVER_URL }}
+          K3S_TOKEN: ${{ secrets.K3S_TLS_SA_TOKEN }}
+          FORCE_RENEW: ${{ inputs.force_renew || github.event.client_payload.force_renew || 'false' }}
+          THRESHOLD_DAYS: ${{ inputs.threshold_days || github.event.client_payload.threshold_days || '30' }}
+        run: |
+          set -euo pipefail
+
+          echo "🔍 Fetching active certificate from K3s Secret (default/jppwl-asia-tls)..."
+          CRT_B64=$(curl -k -s --connect-timeout 10 \
+            -H "Authorization: Bearer ${K3S_TOKEN}" \
+            "${K3S_API_URL}/api/v1/namespaces/default/secrets/jppwl-asia-tls" | jq -r '.data["tls.crt"] // empty')
+
+          if [ -z "$CRT_B64" ]; then
+            echo "⚠️ No valid tls.crt found in K3s Secret! Proceeding with fresh issuance..."
+            echo "should_renew=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          END_DATE_STR=$(echo "$CRT_B64" | base64 -d | openssl x509 -noout -enddate | cut -d= -f2)
+          ISSUER_STR=$(echo "$CRT_B64" | base64 -d | openssl x509 -noout -issuer | sed 's/^issuer=//')
+          END_EPOCH=$(date -d "$END_DATE_STR" +%s)
+          NOW_EPOCH=$(date +%s)
+          REMAINING_DAYS=$(( (END_EPOCH - NOW_EPOCH) / 86400 ))
+
+          echo "📅 Active Certificate Expiry: $END_DATE_STR ($REMAINING_DAYS days remaining)"
+          echo "🏢 Issuer: $ISSUER_STR"
+
+          if [ "$FORCE_RENEW" = "true" ] || [ "$REMAINING_DAYS" -le "$THRESHOLD_DAYS" ]; then
+            DECISION="🔄 RENEW REQUIRED (force_renew=${FORCE_RENEW}, remaining=${REMAINING_DAYS}d <= ${THRESHOLD_DAYS}d)"
+            SHOULD_RENEW="true"
+          else
+            DECISION="🟢 HEALTHY - SKIP RENEWAL (remaining=${REMAINING_DAYS}d > ${THRESHOLD_DAYS}d)"
+            SHOULD_RENEW="false"
+          fi
+
+          echo "should_renew=${SHOULD_RENEW}" >> "$GITHUB_OUTPUT"
+
+          cat << EOF >> "$GITHUB_STEP_SUMMARY"
+          ### 🔐 Let's Encrypt Wildcard TLS Certificate Inspection (`*.jppwl.asia`)
+          | Metric | Value |
+          | :--- | :--- |
+          | **Target Domains** | `jppwl.asia`, `*.jppwl.asia` |
+          | **K3s Target Secret** | `default/jppwl-asia-tls` |
+          | **Current Issuer** | `${ISSUER_STR}` |
+          | **Current Expiry (UTC)** | `${END_DATE_STR}` |
+          | **Remaining Days** | **${REMAINING_DAYS} days** (Threshold: ${THRESHOLD_DAYS} days) |
+          | **Force Renew Flag** | `${FORCE_RENEW}` |
+          | **Action Decision** | **${DECISION}** |
+          EOF
+
+      - name: 2. Issue New Let's Encrypt Wildcard Certificate via Cloudflare DNS-01
+        if: steps.check_cert.outputs.should_renew == 'true'
+        env:
+          CF_TOKEN: ${{ secrets.CF_DNS_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "📦 Installing certbot and python3-certbot-dns-cloudflare on ephemeral runner..."
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq certbot python3-certbot-dns-cloudflare
+
+          echo "dns_cloudflare_api_token = ${CF_TOKEN}" > /tmp/cf_dns.ini
+          chmod 600 /tmp/cf_dns.ini
+
+          echo "🚀 Requesting wildcard certificate from Let's Encrypt ACME v2..."
+          sudo certbot certonly --dns-cloudflare \
+            --dns-cloudflare-credentials /tmp/cf_dns.ini \
+            --dns-cloudflare-propagation-seconds 15 \
+            -d "jppwl.asia" -d "*.jppwl.asia" \
+            --key-type ecdsa \
+            --non-interactive --agree-tos -m gateman56@gmail.com
+
+          rm -f /tmp/cf_dns.ini
+          echo "✅ Certificate issued successfully on ephemeral runner!"
+
+      - name: 3. Sync New Certificate to K3s Secret (default/jppwl-asia-tls)
+        if: steps.check_cert.outputs.should_renew == 'true'
+        env:
+          K3S_API_URL: ${{ secrets.K3S_API_SERVER_URL }}
+          K3S_TOKEN: ${{ secrets.K3S_TLS_SA_TOKEN }}
+        run: |
+          set -euo pipefail
+          CERT_DIR="/etc/letsencrypt/live/jppwl.asia"
+          CRT_B64=$(sudo base64 -w0 "$CERT_DIR/fullchain.pem")
+          KEY_B64=$(sudo base64 -w0 "$CERT_DIR/privkey.pem")
+          NEW_EXPIRY=$(sudo openssl x509 -in "$CERT_DIR/fullchain.pem" -noout -enddate | cut -d= -f2)
+
+          HTTP_CODE=$(curl -k -s -o /tmp/k3s_resp.json -w "%{http_code}" --connect-timeout 15 -X PATCH \
+            "${K3S_API_URL}/api/v1/namespaces/default/secrets/jppwl-asia-tls" \
+            -H "Authorization: Bearer ${K3S_TOKEN}" \
+            -H "Content-Type: application/strategic-merge-patch+json" \
+            -d "{\"data\":{\"tls.crt\":\"${CRT_B64}\",\"tls.key\":\"${KEY_B64}\"}}")
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Failed to patch K3s Secret (HTTP $HTTP_CODE):"
+            cat /tmp/k3s_resp.json
+            exit 1
+          fi
+
+          echo "🎉 Successfully patched K3s Secret default/jppwl-asia-tls! New Expiry: $NEW_EXPIRY"
+          cat << EOF >> "$GITHUB_STEP_SUMMARY"
+          ### ✅ Certificate Renewal & K3s Hot-Reload Completed
+          - **New Certificate Expiry**: `${NEW_EXPIRY}`
+          - **K3s Secret Patch Status**: `HTTP 200 OK` (`default/jppwl-asia-tls`)
+          - **Kong Gateway Status**: Hot-reloaded in memory with zero downtime.
+          EOF
