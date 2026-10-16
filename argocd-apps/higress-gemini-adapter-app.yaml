@@ -61,6 +61,41 @@ spec:
               # ==============================================================================
 
               model_list:
+                # 🚀 Google Gemini 4 次世代先锋系列
+                - model_name: "gemini-4-argon"
+                  aliases:
+                    - "gemini-4"
+                    - "gemini-4-flash"
+                  provider: "google-gemini"
+                  protocol: "gemini-native"
+                  upstream_url: "https://generativelanguage.googleapis.com"
+                  upstream_model: "gemini-4-argon"
+                  api_key: "os.environ/OPENAI_API_KEY_FREE_3"
+                  pricing:
+                    prompt_per_1m: 0.150
+                    completion_per_1m: 0.600
+                    cache_read_per_1m: 0.0375
+                    tiered_threshold: 128000
+                    tiered_multiplier: 2.0
+
+                # 🚀 Google Gemini 4 搜索增强系列
+                - model_name: "gemini-4-argon-search"
+                  aliases:
+                    - "gemini-4:search"
+                    - "gemini-4-search"
+                  provider: "google-gemini"
+                  protocol: "gemini-native"
+                  upstream_url: "https://generativelanguage.googleapis.com"
+                  upstream_model: "gemini-4-argon"
+                  enable_search: true
+                  api_key: "os.environ/OPENAI_API_KEY_FREE_3"
+                  pricing:
+                    prompt_per_1m: 0.150
+                    completion_per_1m: 0.600
+                    cache_read_per_1m: 0.0375
+                    tiered_threshold: 128000
+                    tiered_multiplier: 2.0
+
                 # 🟢 Google Gemini 原生直连系列
                 - model_name: "gemini-3.8-flash"
                   aliases:
