@@ -61,7 +61,7 @@ spec:
               # ==============================================================================
 
               model_list:
-                # 🚀 Google Gemini 4 次世代先锋系列
+                # 🚀 Google Gemini 4 次世代先锋系列 (Google 官方 Standard Paid Tier 定价: $2.00 Input / $10.00 Output / $0.10 Cache Read)
                 - model_name: "gemini-4-argon"
                   aliases:
                     - "gemini-4"
@@ -72,13 +72,11 @@ spec:
                   upstream_model: "gemini-4-argon"
                   api_key: "os.environ/OPENAI_API_KEY_FREE_3"
                   pricing:
-                    prompt_per_1m: 0.150
-                    completion_per_1m: 0.600
-                    cache_read_per_1m: 0.0375
-                    tiered_threshold: 128000
-                    tiered_multiplier: 2.0
+                    prompt_per_1m: 2.000
+                    completion_per_1m: 10.000
+                    cache_read_per_1m: 0.100
 
-                # 🚀 Google Gemini 4 搜索增强系列
+                # 🚀 Google Gemini 4 搜索增强系列 (Google 官方 Standard Paid Tier 定价)
                 - model_name: "gemini-4-argon-search"
                   aliases:
                     - "gemini-4:search"
@@ -90,13 +88,11 @@ spec:
                   enable_search: true
                   api_key: "os.environ/OPENAI_API_KEY_FREE_3"
                   pricing:
-                    prompt_per_1m: 0.150
-                    completion_per_1m: 0.600
-                    cache_read_per_1m: 0.0375
-                    tiered_threshold: 128000
-                    tiered_multiplier: 2.0
+                    prompt_per_1m: 2.000
+                    completion_per_1m: 10.000
+                    cache_read_per_1m: 0.100
 
-                # 🟢 Google Gemini 原生直连系列
+                # 🟢 Google Gemini 原生直连系列 (Google 官方 Standard Paid Tier 定价: $0.75 Input / $3.75 Output / $0.075 Cache Read)
                 - model_name: "gemini-3.8-flash"
                   aliases:
                     - "gemini-3.8"
@@ -106,13 +102,11 @@ spec:
                   upstream_url: "https://generativelanguage.googleapis.com"
                   api_key: "os.environ/OPENAI_API_KEY_FREE_3"
                   pricing:
-                    prompt_per_1m: 0.075
-                    completion_per_1m: 0.300
-                    cache_read_per_1m: 0.01875
-                    tiered_threshold: 128000
-                    tiered_multiplier: 2.0
+                    prompt_per_1m: 0.750
+                    completion_per_1m: 3.750
+                    cache_read_per_1m: 0.075
 
-                # 🟢 Google Gemini 原生搜索增强系列
+                # 🟢 Google Gemini 原生搜索增强系列 (Google 官方 Standard Paid Tier 定价)
                 - model_name: "gemini-3.8-flash-search"
                   aliases:
                     - "gemini-3.8-flash:search"
@@ -123,13 +117,11 @@ spec:
                   enable_search: true
                   api_key: "os.environ/OPENAI_API_KEY_FREE_3"
                   pricing:
-                    prompt_per_1m: 0.075
-                    completion_per_1m: 0.300
-                    cache_read_per_1m: 0.01875
-                    tiered_threshold: 128000
-                    tiered_multiplier: 2.0
+                    prompt_per_1m: 0.750
+                    completion_per_1m: 3.750
+                    cache_read_per_1m: 0.075
 
-                # 🛡️ A6 API 渠道: kimi-k3
+                # 🛡️ A6 API 渠道: kimi-k3 (对齐原 LiteLLM A6 BBGT 极低商户价: ¥0.0766/1M Input, ¥0.3830/1M Output)
                 - model_name: "kimi-k3"
                   aliases:
                     - "kimi"
@@ -140,11 +132,11 @@ spec:
                   api_key: "os.environ/A6_API_KEY"
                   fallback: "gpt-5.6-luna"
                   pricing:
-                    prompt_per_1m: 0.150
-                    completion_per_1m: 0.600
-                    cache_read_per_1m: 0.030
+                    prompt_per_1m: 0.010595
+                    completion_per_1m: 0.052974
+                    cache_read_per_1m: 0.010595
 
-                # 🛡️ A6 API 渠道: glm-5.3
+                # 🛡️ A6 API 渠道: glm-5.3 (对齐原 LiteLLM A6 BBGT-VIP 实测价: $0.0102/1M Input, $0.032057/1M Output)
                 - model_name: "glm-5.3"
                   aliases:
                     - "glm"
@@ -155,23 +147,24 @@ spec:
                   api_key: "os.environ/A6_API_KEY"
                   fallback: "gpt-5.6-luna"
                   pricing:
-                    prompt_per_1m: 0.100
-                    completion_per_1m: 0.400
-                    cache_read_per_1m: 0.020
+                    prompt_per_1m: 0.0102
+                    completion_per_1m: 0.032057
+                    cache_read_per_1m: 0.0102
 
-                # 🛡️ A6 API 渠道: gpt-5.6-luna (兜底保底)
+                # 🛡️ A6 API 渠道: gpt-5.6-luna (对齐原 LiteLLM A6 实测价: $0.0096/1M)
                 - model_name: "gpt-5.6-luna"
                   aliases:
                     - "luna"
+                    - "gpt-5.6-luna-a6"
                   provider: "a6api"
                   protocol: "openai"
                   upstream_url: "https://api.a6api.com/v1/chat/completions"
                   upstream_model: "gpt-5.6-luna"
                   api_key: "os.environ/A6_API_KEY"
                   pricing:
-                    prompt_per_1m: 0.250
-                    completion_per_1m: 1.000
-                    cache_read_per_1m: 0.125
+                    prompt_per_1m: 0.0096
+                    completion_per_1m: 0.0096
+                    cache_read_per_1m: 0.0096
         livenessProbe:
           enabled: true
           path: /health
