@@ -21,7 +21,7 @@ spec:
 
         image:
           repository: ghcr.io/nvd11/my-higress-gemini-adapter
-          digest: sha256:6d80960a53c62ad2f95751866fd6e145213da2799022ecc6ea34e132faf0b8da
+          digest: sha256:5952a76f1d205083498bcfa7d2e99c41f665daf3a76bf964694a7e5a8194912e
           pullPolicy: IfNotPresent
 
         env:
