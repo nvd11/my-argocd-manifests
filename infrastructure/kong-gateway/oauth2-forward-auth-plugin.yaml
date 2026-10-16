@@ -36,6 +36,9 @@ data:
 
     function OAuth2ForwardAuth:access(conf)
       local req_uri = ngx.var.request_uri or kong.request.get_path_with_query()
+      if ngx.var.uri and ngx.var.uri:find("^/oauth2/") then
+        return
+      end
       local headers = kong.request.get_headers()
 
       -- 1. 构建转发给 OAuth2-Proxy 的探针头
@@ -105,7 +108,15 @@ data:
 
         -- 网页浏览器请求下发 302 重定向至登录启动页，并携带当前访问目标地址 (rd)
         local signin_url = conf.signin_url or "/oauth2/start"
-        local redirect_target = signin_url .. "?rd=" .. ngx.escape_uri(req_uri)
+        local host = kong.request.get_host()
+        local rd_val = req_uri
+        if host and host ~= "gw.jppwl.asia" and host ~= "gw-tx.jppwl.asia" then
+          if not signin_url:find("^https?://") then
+            signin_url = "https://gw.jppwl.asia/oauth2/start"
+          end
+          rd_val = "https://" .. host .. req_uri
+        end
+        local redirect_target = signin_url .. "?rd=" .. ngx.escape_uri(rd_val)
 
         return kong.response.exit(302, nil, {
           ["Location"] = redirect_target,
