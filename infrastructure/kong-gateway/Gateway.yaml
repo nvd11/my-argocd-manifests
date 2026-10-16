@@ -25,3 +25,34 @@ spec:
     allowedRoutes:
       namespaces:
         from: All
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tls-cert-updater
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: tls-cert-updater-role
+  namespace: default
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  resourceNames: ["jppwl-asia-tls"]
+  verbs: ["get", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tls-cert-updater-binding
+  namespace: default
+subjects:
+- kind: ServiceAccount
+  name: tls-cert-updater
+  namespace: default
+roleRef:
+  kind: Role
+  name: tls-cert-updater-role
+  apiGroup: rbac.authorization.k8s.io
