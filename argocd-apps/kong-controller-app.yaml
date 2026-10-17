@@ -34,6 +34,7 @@ spec:
             - 10.1.0.2       # 腾讯云 vm-0-2-debian 网卡内网 IP (公网 43.139.214.231 DNAT 落点)
             - 100.77.64.95   # 腾讯云 vm-0-2-debian Tailscale IP
             - 100.104.150.19 # 本地 NUC Tailscale IP
+            - 100.115.214.26 # 本地 Radxa Tailscale IP
           # 目标 3: 开启 TCP stream 转发能力 (透传 TCP, 供 Redis/MySQL 等使用)
           stream:
             - containerPort: 6379
