@@ -27,6 +27,13 @@ spec:
         proxy:
           # 目标 2: 设置外部流量策略为 Local, 避免跨节点路由, 就近访问本节点的 Controller Pod
           externalTrafficPolicy: Local
+          # 显式声明各节点的网卡内网 IP 与 Tailscale IP, 确保公网 DNAT 与 Tailscale 流量都在 PREROUTING 第一道关卡直接走本机 KUBE-SVL 本地链
+          externalIPs:
+            - 10.0.0.234     # OCI free-arm-vm 网卡内网 IP (公网 134.185.90.98 DNAT 落点)
+            - 100.105.130.0  # OCI free-arm-vm Tailscale IP
+            - 10.1.0.2       # 腾讯云 vm-0-2-debian 网卡内网 IP (公网 43.139.214.231 DNAT 落点)
+            - 100.77.64.95   # 腾讯云 vm-0-2-debian Tailscale IP
+            - 100.104.150.19 # 本地 NUC Tailscale IP
           # 目标 3: 开启 TCP stream 转发能力 (透传 TCP, 供 Redis/MySQL 等使用)
           stream:
             - containerPort: 6379
