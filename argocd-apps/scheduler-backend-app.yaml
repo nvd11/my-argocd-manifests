@@ -1,0 +1,138 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: scheduler-backend
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  labels:
+    app.kubernetes.io/name: scheduler-backend
+    app.kubernetes.io/part-of: aws-scheduler-dashboard
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nvd11/my-shared-helm-charts.git
+    path: charts/generic-web-service-v2
+    targetRevision: main
+    helm:
+      values: |
+        replicaCount: 1
+        containerPort: 8080
+
+        image:
+          repository: ghcr.io/nvd11/scheduler-backend
+          digest: sha256:189976aaa33e84a8534c74da37ea76a107af56ae9b4c90d58fa74124f31cbe3c
+          pullPolicy: IfNotPresent
+
+        resources:
+          requests:
+            cpu: 20m
+            memory: 36Mi
+          limits:
+            cpu: 200m
+            memory: 64Mi
+
+        envFrom:
+          - configMapRef:
+              name: scheduler-backend-config
+          - secretRef:
+              name: scheduler-backend-secrets
+
+        configMap:
+          enabled: true
+          name: scheduler-backend-config
+          data:
+            QUARKUS_HTTP_PORT: "8080"
+            APP_ENV: "prod"
+            APP_AUTH_ENABLED: "true"
+            APP_AUTH_MODE: "forward-auth"
+            APP_LOGTO_ENDPOINT: "https://sodaxw.logto.app"
+            AWS_REGION: "ap-southeast-1"
+            AWS_ACCOUNT_ID: "186004631963"
+            AWS_SCHEDULER_GROUP: "default"
+            AWS_EVENT_BUS_NAME: "default"
+            GITHUB_API_BASE_URL: "https://api.github.com"
+            TOPOLOGY_CACHE_TTL_SECONDS: "60"
+            RUN_HISTORY_CACHE_TTL_SECONDS: "15"
+
+        externalSecret:
+          enabled: true
+          refreshInterval: 1h
+          secretStoreRef:
+            name: oci-vault-store
+            kind: SecretStore
+          target:
+            name: scheduler-backend-secrets
+            creationPolicy: Owner
+          data:
+            - secretKey: AWS_ACCESS_KEY_ID
+              remoteRef:
+                key: scheduler-aws-access-key-id
+            - secretKey: AWS_SECRET_ACCESS_KEY
+              remoteRef:
+                key: scheduler-aws-secret-access-key
+            - secretKey: GITHUB_TOKEN
+              remoteRef:
+                key: scheduler-github-token
+
+        livenessProbe:
+          enabled: true
+          path: /live
+          port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 15
+          failureThreshold: 3
+
+        readinessProbe:
+          enabled: true
+          path: /ready
+          port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 10
+          failureThreshold: 3
+
+        service:
+          type: ClusterIP
+          port: 8080
+          annotations:
+            konghq.com/plugins: oauth2-forward-auth
+            konghq.com/read-timeout: "60000"
+            konghq.com/write-timeout: "60000"
+            konghq.com/connect-timeout: "15000"
+
+        route:
+          enabled: true
+          parentGateway: kong-main-gateway
+          parentGatewayNamespace: default
+          path: /scheduler/api
+          pathType: PathPrefix
+          annotations:
+            konghq.com/strip-path: "true"
+            konghq.com/plugins: oauth2-forward-auth
+            konghq.com/read-timeout: "60000"
+            konghq.com/write-timeout: "60000"
+            konghq.com/connect-timeout: "15000"
+
+        nodeSelector:
+          kubernetes.io/hostname: radxa-cubie-a7a
+
+  destination:
+    name: tencent-dp1-cluster
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      name: scheduler-backend-secrets
+      jsonPointers:
+        - /data
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      jsonPointers:
+        - /status
