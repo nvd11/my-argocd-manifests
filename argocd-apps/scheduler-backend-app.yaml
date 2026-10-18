@@ -32,16 +32,10 @@ spec:
             cpu: 200m
             memory: 64Mi
 
-        # Cap Native Heap at 48MB and configure Starfive LAN proxy for GitHub/AWS
         args:
           - "-Dquarkus.http.host=0.0.0.0"
           - "-Xmx48m"
           - "-Xms16m"
-          - "-Dhttp.proxyHost=10.0.1.227"
-          - "-Dhttp.proxyPort=7890"
-          - "-Dhttps.proxyHost=10.0.1.227"
-          - "-Dhttps.proxyPort=7890"
-          - "-Dhttp.nonProxyHosts=localhost|127.*|10.*|100.*|*.svc|*.cluster.local"
 
         envFrom:
           - configMapRef:
@@ -63,15 +57,10 @@ spec:
             AWS_SCHEDULER_GROUP: "default"
             AWS_EVENT_BUS_NAME: "default"
             GITHUB_API_BASE_URL: "https://api.github.com"
+            OUTBOUND_PROXY_HOST: "10.0.1.227"
+            OUTBOUND_PROXY_PORT: "7890"
             TOPOLOGY_CACHE_TTL_SECONDS: "60"
             RUN_HISTORY_CACHE_TTL_SECONDS: "15"
-            http_proxy: "http://10.0.1.227:7890"
-            https_proxy: "http://10.0.1.227:7890"
-            HTTP_PROXY: "http://10.0.1.227:7890"
-            HTTPS_PROXY: "http://10.0.1.227:7890"
-            no_proxy: "localhost,127.0.0.1,10.0.0.0/8,100.64.0.0/10,172.16.0.0/12,192.168.0.0/16,.svc,.cluster.local"
-            NO_PROXY: "localhost,127.0.0.1,10.0.0.0/8,100.64.0.0/10,172.16.0.0/12,192.168.0.0/16,.svc,.cluster.local"
-            JAVA_TOOL_OPTIONS: "-Dhttp.proxyHost=10.0.1.227 -Dhttp.proxyPort=7890 -Dhttps.proxyHost=10.0.1.227 -Dhttps.proxyPort=7890 -Dhttp.nonProxyHosts=localhost|127.*|10.*|100.*|*.svc|*.cluster.local"
 
         externalSecret:
           enabled: true
