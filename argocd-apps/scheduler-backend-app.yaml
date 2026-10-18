@@ -21,7 +21,7 @@ spec:
 
         image:
           repository: ghcr.io/nvd11/scheduler-backend
-          digest: sha256:189976aaa33e84a8534c74da37ea76a107af56ae9b4c90d58fa74124f31cbe3c
+          digest: sha256:7567f1c925d795880c668280020720892de440118da331f2cc9720c5e2cc4772
           pullPolicy: IfNotPresent
 
         resources:
