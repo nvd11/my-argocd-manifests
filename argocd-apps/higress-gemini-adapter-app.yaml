@@ -167,6 +167,18 @@ spec:
                     prompt_per_1m: 0.0096
                     completion_per_1m: 0.0096
                     cache_read_per_1m: 0.0096
+
+                # 🛡️ A6 API 渠道: DeepSeek V4 Pro (美元: $0.00096/1M tokens)
+                - model_name: "deepseek-v4-pro-0813"
+                  provider: "a6api"
+                  protocol: "openai"
+                  upstream_url: "https://api.a6api.com/v1/chat/completions"
+                  upstream_model: "deepseek-v4-pro-0813"
+                  api_key: "os.environ/A6_API_KEY"
+                  pricing:
+                    prompt_per_1m: 0.00096
+                    completion_per_1m: 0.00096
+                    cache_read_per_1m: 0.00096
         livenessProbe:
           enabled: true
           path: /health
