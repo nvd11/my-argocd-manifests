@@ -53,3 +53,9 @@ spec:
       kind: HTTPRoute
       jsonPointers:
         - /status
+    # 🎯 忽略 Ingress 中由集群动态注入的真实上游 API Key 授权头
+    - group: networking.k8s.io
+      kind: Ingress
+      name: higress-ai-ingress
+      jsonPointers:
+        - /metadata/annotations/higress.io~1request-header-control-update
