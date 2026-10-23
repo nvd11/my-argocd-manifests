@@ -16,7 +16,7 @@ spec:
     # --------------------------------------------------------------------------
     - chart: higress-core
       repoURL: https://higress.io/helm-charts
-      targetRevision: 2.0.7
+      targetRevision: 2.2.5
       helm:
         valueFiles:
           - $values/values.yaml
