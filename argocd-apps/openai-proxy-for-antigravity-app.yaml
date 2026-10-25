@@ -19,7 +19,7 @@ spec:
 
         image:
           repository: ghcr.io/nvd11/openai-proxy-for-antigravity
-          digest: sha256:73d9f758185ef06218378f1894c351b8263cbc7eab7e52c4090b4f4440190b59
+          digest: sha256:acaffac1689bbc98998faa6a5917fe12d611b124b86a0b4610b1df0fbadd422d
           pullPolicy: IfNotPresent
 
         nodeSelector:
