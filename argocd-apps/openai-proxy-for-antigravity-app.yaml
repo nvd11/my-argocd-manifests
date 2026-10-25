@@ -28,6 +28,8 @@ spec:
         envFrom:
           - configMapRef:
               name: openai-proxy-config
+          - secretRef:
+              name: litellm-secrets
 
         configMap:
           enabled: true
@@ -37,6 +39,7 @@ spec:
             CONFIG_DIR: "/etc/antigravity-proxy"
             ROTATION_STRATEGY: "round-robin"
             LOG_LEVEL: "info"
+            A6_UPSTREAM_URL: "https://api.a6api.com/v1/chat/completions"
 
         volumes:
           - name: antigravity-creds
