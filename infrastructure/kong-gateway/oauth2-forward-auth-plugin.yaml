@@ -17,7 +17,7 @@ data:
             fields = {
               { auth_url = { type = "string", default = "http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth" } },
               { signin_url = { type = "string", default = "/oauth2/start" } },
-              { timeout = { type = "number", default = 3000 } },
+              { timeout = { type = "number", default = 10000 } },
               { keepalive_timeout = { type = "number", default = 60000 } },
             },
         }, },
@@ -138,7 +138,7 @@ plugin: oauth2-forward-auth
 config:
   auth_url: "http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth"
   signin_url: "/oauth2/start"
-  timeout: 3000
+  timeout: 10000
 ---
 apiVersion: configuration.konghq.com/v1
 kind: KongPlugin
@@ -149,7 +149,7 @@ plugin: oauth2-forward-auth
 config:
   auth_url: "http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth"
   signin_url: "/oauth2/start"
-  timeout: 3000
+  timeout: 10000
 ---
 apiVersion: configuration.konghq.com/v1
 kind: KongPlugin
@@ -160,7 +160,7 @@ plugin: oauth2-forward-auth
 config:
   auth_url: "http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth"
   signin_url: "/oauth2/start"
-  timeout: 3000
+  timeout: 10000
 ---
 apiVersion: configuration.konghq.com/v1
 kind: KongPlugin
@@ -171,4 +171,4 @@ plugin: oauth2-forward-auth
 config:
   auth_url: "http://oauth2-proxy.default.svc.cluster.local:4180/oauth2/auth"
   signin_url: "/oauth2/start"
-  timeout: 3000
+  timeout: 10000
