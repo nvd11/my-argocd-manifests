@@ -83,9 +83,9 @@ spec:
           type: ClusterIP
           port: 4180
 
-        # 放宽 nodeSelector 限制，让副本调度至 free-arm-vm (新加坡) 等节点，避免跨洲鉴权延迟
-        # nodeSelector:
-        #   kubernetes.io/hostname: "vm-0-2-debian"
+        # 🎯 锁定在 free-arm-vm (新加坡)，实现本地双副本高可用，彻底消除 50% 跨洲轮询超时
+        nodeSelector:
+          kubernetes.io/hostname: "free-arm-vm"
 
         route:
           enabled: true
