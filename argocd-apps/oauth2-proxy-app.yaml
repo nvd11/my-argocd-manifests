@@ -11,7 +11,7 @@ spec:
     targetRevision: 'v1.1.3'
     helm:
       values: |
-        replicaCount: 1
+        replicaCount: 2
         containerPort: 4180
 
         image:
@@ -83,8 +83,9 @@ spec:
           type: ClusterIP
           port: 4180
 
-        nodeSelector:
-          kubernetes.io/hostname: "vm-0-2-debian"
+        # 放宽 nodeSelector 限制，让副本调度至 free-arm-vm (新加坡) 等节点，避免跨洲鉴权延迟
+        # nodeSelector:
+        #   kubernetes.io/hostname: "vm-0-2-debian"
 
         route:
           enabled: true
