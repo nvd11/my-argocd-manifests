@@ -11,7 +11,7 @@ spec:
     targetRevision: 'v1.1.3'
     helm:
       values: |
-        replicaCount: 2
+        replicaCount: 1
         containerPort: 4180
 
         image:
