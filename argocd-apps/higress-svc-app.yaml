@@ -53,9 +53,13 @@ spec:
       kind: HTTPRoute
       jsonPointers:
         - /status
-    # 🎯 忽略 Ingress 中由集群动态注入的真实上游 API Key 授权头
-    - group: networking.k8s.io
-      kind: Ingress
-      name: higress-ai-ingress
+    # 🎯 忽略由 higress-provider-key-sync Job 回填的 WasmPlugin 上游真实密钥。
+    #    该子映射**完全不进 Git**: config.yaml 每新增一个带 api_key 的 provider,
+    #    pricinggen 会在对应 Ingress 上打 higress.io/upstream-key-env 标注,
+    #    Job 据此从 Secret 取值并 merge-patch 进 WasmPlugin.defaultConfig.upstream_keys
+    #    (kubectl patch 写入的字段不在 ArgoCD last-applied 里, 后续 sync 不会清掉)。
+    - group: extensions.higress.io
+      kind: WasmPlugin
+      name: ai-gatekeeper
       jsonPointers:
-        - /metadata/annotations/higress.io~1request-header-control-update
+        - /spec/defaultConfig/upstream_keys
