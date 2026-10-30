@@ -43,6 +43,7 @@ spec:
         service:
           type: ClusterIP
           port: 80
+          publishNotReadyAddresses: true
 
         route:
           enabled: true

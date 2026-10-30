@@ -83,6 +83,7 @@ spec:
         service:
           type: ClusterIP
           port: 4000
+          publishNotReadyAddresses: true
           annotations:
             konghq.com/read-timeout: "600000"
             konghq.com/write-timeout: "600000"
