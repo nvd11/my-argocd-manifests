@@ -48,6 +48,12 @@ spec:
       name: higress-ai-secrets
       jsonPointers:
         - /data
+    # 🎯 忽略 Service/higress-gateway 本地高可用 publishNotReadyAddresses
+    - group: ""
+      kind: Service
+      name: higress-gateway
+      jsonPointers:
+        - /spec/publishNotReadyAddresses
     # 🎯 忽略 HTTPRoute 由网关动态写回的路由 status 状态
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
