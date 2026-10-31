@@ -11,7 +11,7 @@ spec:
     targetRevision: main
     helm:
       values: |
-        replicaCount: 1
+        replicaCount: 0 # 🎯 保图下线：释放 free-arm-vm 算力，Higress 已全面接管
         containerPort: 4000
 
         image:
@@ -116,63 +116,12 @@ spec:
             konghq.com/connect-timeout: "60000"
 
         route:
-          enabled: true
+          enabled: false # 🎯 下线推理路由 /litellm/v1，Higress 接管
           parentGateway: kong-main-gateway
           path: /litellm
           pathType: PathPrefix
           annotations:
             konghq.com/strip-path: "true"
-
-        extraRoutes:
-          ui-route:
-            parentGateway: kong-main-gateway
-            parentGatewayNamespace: default
-            annotations:
-              konghq.com/plugins: oauth2-forward-auth
-            rules:
-              - matches:
-                  - path: /dashboard
-                  - path: /api/v1
-              - matches:
-                  - path: /ui
-                  - path: /litellm-asset-prefix
-                  - path: /_next
-                  - path: /fallback
-                  - path: /swagger
-                  - path: /get_favicon
-                  - path: /get_logo_url
-                  - path: /favicon.ico
-              - matches:
-                  - path: /login
-                  - path: /v2
-                  - path: /v3
-                  - path: /auth
-                  - path: /sso
-                  - path: /onboarding
-                  - path: /invitation
-              - matches:
-                  - path: /key
-                  - path: /user
-                  - path: /team
-                  - path: /customer
-                  - path: /organization
-                  - path: /project
-                  - path: /spend
-                  - path: /budget
-              - matches:
-                  - path: /models
-                  - path: /model
-                  - path: /model_group
-                  - path: /model_hub
-                  - path: /routes
-                  - path: /global
-                  - path: /config
-                  - path: /settings
-              - matches:
-                  - path: /health
-                  - path: /cache
-                  - path: /alerting
-                  - path: /audit
 
         nodeSelector:
           kubernetes.io/hostname: free-arm-vm
