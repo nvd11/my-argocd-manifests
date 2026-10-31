@@ -30,8 +30,6 @@ spec:
         envFrom:
           - configMapRef:
               name: openai-proxy-config
-          - secretRef:
-              name: litellm-secrets
 
         configMap:
           enabled: true
