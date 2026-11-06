@@ -22,6 +22,8 @@ spec:
         envFrom:
           - configMapRef:
               name: astra-backend-config
+          - secretRef:
+              name: astra-backend-secrets
 
         configMap:
           enabled: true
@@ -39,13 +41,27 @@ spec:
             APP_DATABASE_URL: "mysql+asyncmy://admin:Hsbc1234!@161.118.240.218:3306/astra"
             APP_REDIS_URL: "redis://:hsbc1234@redis.redis.svc.cluster.local:6379/0"
             APP_LITELLM_BASE_URL: "https://higress.jppwl.asia/v1"
-            APP_LITELLM_API_KEY: "sk-astra-higress-20261101-888888"
             APP_DEFAULT_MODEL: "deepseek-v4-pro-0813"
             APP_AUTH_ENABLED: "true"
             APP_AUTH_MODE: "forward-auth"
             APP_LOGTO_ENDPOINT: "https://sodaxw.logto.app"
             APP_CLOUDFLARE_TEAM_NAME: "jppwl"
             APP_CLOUDFLARE_AUDIENCE: "astra-audience-tag"
+
+        # 🔐 安全轮换: Virtual Key 从 OCI Vault 注入, 明文不落公开仓库
+        externalSecret:
+          enabled: true
+          refreshInterval: 1h
+          secretStoreRef:
+            name: oci-litellm-vault-store
+            kind: SecretStore
+          target:
+            name: astra-backend-secrets
+            creationPolicy: Owner
+          data:
+            - secretKey: APP_LITELLM_API_KEY
+              remoteRef:
+                key: higress-astra-virtual-key
 
         livenessProbe:
           enabled: true
