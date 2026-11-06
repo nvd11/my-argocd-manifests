@@ -69,3 +69,17 @@ spec:
       name: ai-gatekeeper
       jsonPointers:
         - /spec/defaultConfig/upstream_keys
+    # 🎯 [ROTATION 2026-11-06] 忽略由 higress-provider-key-sync Job 从 Secret
+    #    (HIGRESS_VIRTUAL_KEYS_JSON) 回填的网关 Virtual Keys。
+    #    Git 中只保留 `virtual_keys: {}` 占位; 若不忽略, selfHeal 会把集群里的
+    #    16 把钥匙清空 → 插件 FAIL_CLOSE → 全站 401。
+    - group: extensions.higress.io
+      kind: WasmPlugin
+      name: ai-gatekeeper
+      jsonPointers:
+        - /spec/defaultConfig/virtual_keys
+    - group: extensions.higress.io
+      kind: WasmPlugin
+      name: finops-audit
+      jsonPointers:
+        - /spec/defaultConfig/virtual_keys
