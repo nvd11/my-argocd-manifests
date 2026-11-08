@@ -22,6 +22,14 @@ spec:
         backoffLimit: 0
         ttlSecondsAfterFinished: 60 # 🎯 K8s 原生优雅回收倒计时 (跑完留存 60 秒供 Fluent Bit 从容采集日志，随后由内核自动销毁)
 
+        # 🎯 DNS 解析治本：k8s 默认 ndots:5 + 节点 Tailscale 搜索域 (tail9619f4.ts.net)
+        # 会让 Java/glibc 先拼接搜索域查询并触发 5s×2 超时 (实测 10s)，导致 UnknownHostException。
+        # ndots:2 让带 ≥2 个点的 FQDN 优先绝对解析 (~15ms)，绕开坏搜索域并加速所有外网域名。
+        dnsConfig:
+          options:
+            - name: ndots
+              value: "2"
+
         image:
           repository: ghcr.io/nvd11/sms-flink-batch-etl # 默认生产 Flink 入湖批处理镜像
           tag: latest
