@@ -33,6 +33,14 @@ spec:
         nodeSelector:
           kubernetes.io/hostname: "nuc" # 🔒 严格锁定 Intel NUC 节点
 
+        # 🔧 DNS 优化：ndots:2 让带 ≥2 个点的 FQDN 优先按绝对域名解析，
+        # 绕开 ndots:5 + Tailscale 搜索域，解决 Trino 连接境外 CockroachDB 时
+        # 间歇性 UnknownHostException / 连接超时（与 nuc-batch-runner 同款修复）。
+        dnsConfig:
+          options:
+            - name: ndots
+              value: "2"
+
         service:
           type: NodePort
           port: 8080
