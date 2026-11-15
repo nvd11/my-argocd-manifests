@@ -24,6 +24,8 @@ spec:
         envFrom:
           - configMapRef:
               name: cctv-uploader-config
+          - secretRef:
+              name: cctv-uploader-secrets
 
         volumeMounts:
           - name: cctv-buffer-vol
@@ -43,7 +45,6 @@ spec:
             CCTV_UPLOADER_BUFFER_DIR: "/mnt/buffer/cctv"
             CCTV_UPLOADER_ALIST_ENDPOINT: "http://10.0.1.227:5244/dav"
             CCTV_UPLOADER_ALIST_USERNAME: "gateman"
-            CCTV_UPLOADER_ALIST_PASSWORD: "32565624"
             CCTV_UPLOADER_REMOTE_BASE_DIR: "/Quark/CCTV_Records"
             CCTV_UPLOADER_LOCATION_NAME: "锦绣世家_客厅"
             CCTV_UPLOADER_MIN_FILE_AGE_SECONDS: "60"
@@ -51,6 +52,22 @@ spec:
             CCTV_UPLOADER_CLEANUP_POLICY: "DELETE"
             CCTV_UPLOADER_MIN_RETAINED_FILES: "10"
             CCTV_UPLOADER_SCAN_CRON_EXPRESSION: "0 */5 * * * ?"
+
+        # 🔐 机密配置由 OCI Vault 经 External Secrets Operator 同步注入
+        # Git 中只保留 OCI 侧的 secret 名称，绝不出现任何明文口令
+        externalSecret:
+          enabled: true
+          refreshInterval: 1h
+          secretStoreRef:
+            name: cctv-vault-store
+            kind: SecretStore
+          target:
+            name: cctv-uploader-secrets
+            creationPolicy: Owner
+          data:
+            - secretKey: CCTV_UPLOADER_ALIST_PASSWORD
+              remoteRef:
+                key: cctv-uploader-alist-password
 
         livenessProbe:
           enabled: true

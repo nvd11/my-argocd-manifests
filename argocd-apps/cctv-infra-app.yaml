@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cctv-infra
+  namespace: argocd # 🎯 由阿里云 ArgoCD 控制面统一纳管
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/nvd11/my-argocd-manifests.git'
+    targetRevision: HEAD
+    path: infrastructure/cctv # 🎯 OCI Vault SecretStore 等安防体系底层基建
+  destination:
+    name: 'tencent-dp1-cluster'
+    namespace: cctv-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
