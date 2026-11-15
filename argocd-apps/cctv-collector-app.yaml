@@ -24,6 +24,8 @@ spec:
         envFrom:
           - configMapRef:
               name: cctv-collector-config
+          - secretRef:
+              name: cctv-collector-secrets
 
         volumeMounts:
           - name: cctv-buffer-vol
@@ -40,10 +42,25 @@ spec:
           name: cctv-collector-config
           data:
             TZ: "Asia/Shanghai"
-            CCTV_RTSP_URL: "rtsp://admin:ga32565624@10.0.1.20:554/stream1"
             CCTV_BUFFER_DIR: "/mnt/buffer/cctv"
             CCTV_SEGMENT_SECONDS: "900"
             CCTV_MIN_FREE_DISK_GB: "5"
+
+        # 🔐 机密配置由 OCI Vault 经 External Secrets Operator 同步注入
+        # Git 中只保留 OCI 侧的 secret 名称，绝不出现任何明文口令
+        externalSecret:
+          enabled: true
+          refreshInterval: 1h
+          secretStoreRef:
+            name: cctv-vault-store
+            kind: SecretStore
+          target:
+            name: cctv-collector-secrets
+            creationPolicy: Owner
+          data:
+            - secretKey: CCTV_RTSP_URL
+              remoteRef:
+                key: cctv-rtsp-url
 
         livenessProbe:
           enabled: true
