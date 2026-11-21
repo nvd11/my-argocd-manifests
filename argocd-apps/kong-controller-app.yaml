@@ -24,6 +24,12 @@ spec:
         deployment:
           # DaemonSet 模式: 每个启用了 LB 的节点 1 个 controller pod
           daemonset: true
+        updateStrategy:
+          # 零停机滚动: 先起新 Pod, Ready 后再删旧 Pod, 避免 Cloudflare 523 空窗
+          type: RollingUpdate
+          rollingUpdate:
+            maxSurge: 1
+            maxUnavailable: 0
         nodeSelector:
           # 仅在启用了 svclb 的节点 (OCI, 腾讯云, NUC) 运行 Kong, 排除 Radxa
           svccontroller.k3s.cattle.io/enablelb: "true"
