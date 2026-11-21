@@ -28,6 +28,14 @@ spec:
           # 仅在启用了 svclb 的节点 (OCI, 腾讯云, NUC) 运行 Kong, 排除 Radxa
           svccontroller.k3s.cattle.io/enablelb: "true"
         proxy:
+          # 🎯 关键修复(2026-11-21): Kong 默认 60s 空闲/读超时会把"大上下文 LLM 请求"（首包慢 >60s）直接掐断，
+          #    表现为客户端 "No response from provider / Connection error"。这里放宽到 10 分钟。
+          env:
+            nginx_http_proxy_read_timeout: "600s"
+            nginx_http_proxy_send_timeout: "600s"
+            nginx_http_keepalive_timeout: "300s"
+            nginx_http_client_body_timeout: "120s"
+            nginx_http_client_header_timeout: "120s"
           # 目标 2: 设置外部流量策略为 Local, 避免跨节点路由, 就近访问本节点的 Controller Pod
           externalTrafficPolicy: Local
           # 显式声明各节点的网卡内网 IP 与 Tailscale IP, 确保公网 DNAT, 局域网与 Tailscale 流量都在 PREROUTING 第一道关卡直接走本机 KUBE-SVL 本地链
