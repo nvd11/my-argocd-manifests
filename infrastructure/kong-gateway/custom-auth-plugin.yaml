@@ -65,13 +65,3 @@ data:
     end
 
     return CustomAuth
----
-apiVersion: configuration.konghq.com/v1
-kind: KongPlugin
-metadata:
-  name: dbgate-auth-plugin
-  namespace: default
-plugin: custom-auth
-config:
-  username: "jason"
-  password: "REDACTED"
