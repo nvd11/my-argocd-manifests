@@ -60,6 +60,12 @@ spec:
             - secretKey: REDIS_PASSWORD
               remoteRef:
                 key: litellm-redis-password
+            - secretKey: A6_API_KEY
+              remoteRef:
+                key: litellm-a6-api-key
+            - secretKey: OPENCODE_GO_API_KEY
+              remoteRef:
+                key: higress-opencode-go-api-key
             - secretKey: ANTIGRAVITY_ACCOUNTS_JSON
               remoteRef:
                 key: antigravity-accounts-credentials
