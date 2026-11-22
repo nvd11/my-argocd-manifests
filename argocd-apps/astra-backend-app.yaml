@@ -38,8 +38,6 @@ spec:
             APP_ROOT_PATH: "/astra/api"
             APP_WORKERS: "1"
             APP_LOG_LEVEL: "INFO"
-            APP_DATABASE_URL: "mysql+asyncmy://admin:REDACTED@161.118.240.218:3306/astra"
-            APP_REDIS_URL: "redis://:REDACTED@redis.redis.svc.cluster.local:6379/0"
             APP_LITELLM_BASE_URL: "https://higress.jppwl.asia/v1"
             APP_DEFAULT_MODEL: "deepseek-v4-pro-0813"
             APP_AUTH_ENABLED: "true"
@@ -62,6 +60,13 @@ spec:
             - secretKey: APP_LITELLM_API_KEY
               remoteRef:
                 key: higress-astra-virtual-key
+            # 数据库/缓存连接串从 OCI Vault 注入, 明文不落公开仓库
+            - secretKey: APP_DATABASE_URL
+              remoteRef:
+                key: astra-database-url
+            - secretKey: APP_REDIS_URL
+              remoteRef:
+                key: astra-redis-url
 
         livenessProbe:
           enabled: true
