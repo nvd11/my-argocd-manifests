@@ -1,7 +1,8 @@
 # free-arm-vm 节点 Tailscale UDP 丢包导致 Kong 反复重建：排障分析与解决方案
 
-- **文档版本**：v1.0.0
+- **文档版本**：v1.1.0
 - **更新时间**：2026-11-23
+- **v1.1 变更**：新增「Option 2：借道阿里云 VM 中转」，附三段链路实测数据（2026-11-23）
 - **交付仓库**：`https://github.com/nvd11/my-argocd-manifests`
 - **目标集群**：腾讯云业务集群 `tencent-dp1-cluster`
 - **涉及节点**：`free-arm-vm`（OCI 新加坡 ARM 4C24G，Tailscale `100.105.130.0`，公网 `129.221.153.223`）、`vm-0-2-debian`（腾讯云 CP，Tailscale `100.77.64.95`，公网 `43.139.214.231`）
@@ -177,6 +178,68 @@ sudo systemctl daemon-reload && sudo systemctl restart k3s-agent
 
 **风险**：重启 agent 期间节点心跳短暂中断（放维护窗口做）；腾讯云固定公网 IP 若变更需同步改这行。
 
+### Option 2（新增）：借道阿里云 VM 中转，以 TCP 绕开 UDP 封锁
+
+**思路**：既然病根是腾讯云出口对 UDP 的针对性丢弃，而腾讯云 ↔ 阿里云的**国内 TCP 链路质量极好**，那就让腾讯云的流量先走 TCP 到阿里云，再由阿里云转发到 OCI ARM。用一段可控的 TCP 链路，替换掉那段不可控的跨境 UDP。
+
+**前置实测（2026-11-23，三段链路全部实机对打，非推测）**：
+
+| 路径 | 协议 | 丢包率 | RTT | 判定 |
+|---|---|---|---|---|
+| 腾讯云 → 阿里云公网 | ICMP | **0%**（40/40） | 1.97ms | 国内骨干，完美 |
+| 腾讯云 → 阿里云公网 | TCP:22（10x） | **0%（10/10）** | ~2ms | 完美 |
+| 腾讯云 → 阿里云 Tailscale | ICMP | 0% 但抖动剧烈 | 107ms（mdev 285ms） | 被迫走 DERP 的罪证 |
+| 阿里云 → OCI ARM 公网 | ICMP | **5%**（38/40） | 198ms | 可用 |
+| 阿里云 → OCI ARM Tailscale | ICMP | 5%（38/40） | 198~231ms | `direct 129.221.153.223:41641` |
+
+关键发现（再次坐实 3.4 的根因结论）：
+
+- 腾讯云这台机器 **ICMP/TCP 完全正常**——到阿里云 2ms、零丢包、TCP 10/10；
+- 但**只要套进 UDP（Tailscale WireGuard）就被迫绕 DERP**，RTT 从 2ms 飙到 107ms、抖动 mdev 285ms；
+- 这证明之前腾讯云 → ARM 的 31~48% 丢包不是链路烂，是 UDP 被针对性封锁。
+
+**中转路径与收益**：
+
+```
+腾讯云 →(TCP, 2ms, 0% 丢包)→ 阿里云 →(直连/TCP, 198ms, 5% 丢包)→ OCI ARM
+```
+
+总延迟约 200ms（与绕 DERP 相当），但**丢包从 31~48% 降到 5%**，且 TCP 段靠重传可完全吸收。核心价值：把不可控的 UDP 封锁，换成两段可控链路。
+
+**三种落地方式（按复杂度排）**：
+
+| 方式 | 做法 | 适用 | 代价 |
+|---|---|---|---|
+| **O2-A｜阿里云自托管 DERP**（最优雅） | 阿里云跑 `derper`，腾讯云节点自动选它为最近 DERP（2ms），Tailscale 流量自动走 TCP 443 中继 | 全流量覆盖、零客户端改动 | 需域名 + TLS 证书 |
+| **O2-B｜socat 端口转发**（最简单） | 阿里云 `socat` 转发单个 TCP 服务（如 apiserver 6443） | 只解决单个端口 | 十分钟搞定，不覆盖 flannel |
+| **O2-C｜frp 内网穿透**（最成熟） | 阿里云 `frps` + ARM `frpc` | 需转发多个服务 | 多一个组件 |
+
+**落地示例（O2-B，以心跳 apiserver 6443 为例）**：
+
+```bash
+# 阿里云（8.148.149.80）上：把 6443 转发到腾讯云 CP
+# 需先确认阿里云安全列表放行所选端口
+socat TCP-LISTEN:6443,fork,reuseaddr TCP:43.139.214.231:6443 &
+
+# ARM 节点 k3s-agent.service.env：心跳目标从 Tailscale IP 改为阿里云中转 IP
+- K3S_URL='https://100.77.64.95:6443'
++ K3S_URL='https://8.148.149.80:6443'
+
+sudo systemctl daemon-reload && sudo systemctl restart k3s-agent
+```
+
+**与现有方案的关系**：Option 2 治的是「跨云整体链路」，粒度比方案 D（只治心跳那一行）更大；若采用 O2-A 全流量 DERP，可同时覆盖心跳和 flannel 的 VXLAN（UDP 8472），弥补方案 D「只治心跳」的局限。可与方案 D 叠加，也可作为其替代。
+
+**局限**：
+
+- 阿里云这台（`aliyun-master`，2C2G）同时是 ArgoCD 控制面 / K3s CP，加中转负载需评估余量；
+- O2-B 只转单个端口，pod-to-pod 的 flannel 流量仍吃 UDP 丢包；要全覆盖得用 O2-A/O2-C；
+- 多一跳中转，阿里云成为单点；其公网 IP 变更需同步改客户端目标。
+
+**回滚**：O2-B 把 `K3S_URL` 改回原值并 restart、停掉 socat 即可，秒级可逆；O2-A/O2-C 停对应服务即可。
+
+**状态**：已实测链路可行性，三种落地方式均未实施，供决策。
+
 ### 方案 A1：强制 Tailscale 走 DERP 中转（已实测有效，兜底）
 
 **思路**：阻断 ARM ↔ CP 的 UDP 直连，逼 Tailscale 降级 DERP（TCP 443 封装），绕开 UDP 封锁。实测丢包 31% → 2%。
@@ -223,6 +286,7 @@ CP 的 `/etc/rancher/k3s/config.yaml` 里**已配置** `node-monitor-grace-perio
 ## 5. 建议与实施顺序
 
 1. **先上方案 D**（心跳走公网 TCP，根治 NotReady，改动只有一行 env）；
+   - 若要**一并解决 flannel 的 UDP 丢包**，评估 Option 2（O2-A 自托管 DERP 全流量中转），它覆盖面比方案 D 大；
 2. 观察 24 小时，`NodeNotReady` 计数停止增长、Kong 不再重建即告成功；
 3. 若后续发现**跨节点 pod 间通信**也卡顿（Kong → 跨节点 backend 流量），再叠加方案 A1（DERP）治 flannel 那条 UDP —— 两者不冲突，各治一段；
 4. 方案 B 已有部分配置，作为兜底保留。
