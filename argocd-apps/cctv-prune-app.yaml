@@ -1,0 +1,82 @@
+# CCTV 录像保留策略：只保留最近 N 天，清掉更早的日期目录
+#
+# 定位：ArgoCD 管「跑什么容器」（本文件 + chart），AWS/GH Actions 管「什么时候跑」。
+#   - CronJob 永不自触发（suspend + 2月31日占位），真正的时钟在 AWS EventBridge Scheduler
+#   - 运行时由 workflow 执行 kubectl create job --from=cronjob/cctv-prune 派生
+#
+# 放在 cctv-system 而非 batch-jobs：直接复用该命名空间已有的 SecretStore（cctv-vault-store），
+# 无需再复制 OCI 认证密钥。
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cctv-prune
+  namespace: argocd
+  labels:
+    domain: cctv
+    type: batch
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nvd11/my-shared-helm-charts.git
+    path: charts/generic-batch-job
+    targetRevision: main
+    helm:
+      values: |
+        fullnameOverride: cctv-prune
+
+        # 🎯 时钟在外部：本地永不触发
+        suspend: true
+        schedule: "0 0 31 2 *"   # 2月31日不存在 = 纯模板
+
+        concurrencyPolicy: Forbid
+        activeDeadlineSeconds: 900   # 软清理任务，15 分钟足够
+        backoffLimit: 1
+        ttlSecondsAfterFinished: 300 # 留 5 分钟便于看日志，随后自动销毁
+
+        # radxa 是 aarch64 —— 镜像必须支持 arm64
+        image:
+          repository: ghcr.io/nvd11/cctv-pruner
+          tag: v0.1.0
+          pullPolicy: IfNotPresent
+
+        # 非机密参数
+        env:
+          - name: ALIST_URL
+            value: "http://10.0.1.227:5244"
+          - name: ALIST_USERNAME
+            value: "cctv-pruner"
+          - name: TARGET_PATH
+            value: "/Quark/CCTV_Records/锦绣世家_客厅"
+          - name: RETENTION_DAYS
+            value: "7"
+          - name: DRY_RUN
+            value: "true"          # 默认只读；正式执行由 workflow 注入 false
+          - name: MAX_DELETE_DIRS
+            value: "40"
+
+        # 机密：由 ESO 从 OCI Vault 同步（infrastructure/cctv/externalsecret-pruner.yaml）
+        envFrom:
+          - secretRef:
+              name: cctv-pruner-secrets
+
+        # 🔒 出口 IP 约束：必须落内网节点，且不得注入 HTTP_PROXY
+        #    （radxa 直连出口与 AList 相同；若走代理会变成新加坡 OCI 的 IP）
+        nodeSelector:
+          kubernetes.io/hostname: "radxa-cubie-a7a"
+
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "200m"
+            memory: "128Mi"
+  destination:
+    name: tencent-dp1-cluster
+    namespace: cctv-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
