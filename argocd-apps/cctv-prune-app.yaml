@@ -34,9 +34,11 @@ spec:
         ttlSecondsAfterFinished: 300 # 留 5 分钟便于看日志，随后自动销毁
 
         # radxa 是 aarch64 —— 镜像必须支持 arm64
+        # digest 由 CI 构建成功后自动回写（repository_dispatch → update-app-image-digest）
         image:
           repository: ghcr.io/nvd11/cctv-pruner
           tag: v0.1.0
+          digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
           pullPolicy: IfNotPresent
 
         # 非机密参数
