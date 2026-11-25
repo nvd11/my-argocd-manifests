@@ -38,7 +38,7 @@ spec:
         image:
           repository: ghcr.io/nvd11/cctv-pruner
           tag: v0.1.0
-          digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+          digest: sha256:d840cdfd0d0967f1ba0108b64835ce845b37a834e2b077b6034e66bd695bda78
           pullPolicy: IfNotPresent
 
         # 非机密参数
