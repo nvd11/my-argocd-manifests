@@ -30,7 +30,7 @@ spec:
         image:
           repository: ghcr.io/nvd11/demo-email
           tag: v0.1.0
-          digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+          digest: sha256:39010330f99eb83ea09327cd16f29e370b46648e3140e582b89d0373bd12d17c
           pullPolicy: IfNotPresent
 
         env:
