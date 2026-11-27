@@ -1,0 +1,22 @@
+# demo 系列的凭据基建（ExternalSecret 等）
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-infra
+  namespace: argocd
+  labels:
+    domain: demo
+    type: infra
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nvd11/my-argocd-manifests.git
+    targetRevision: HEAD
+    path: infrastructure/demo
+  destination:
+    name: tencent-dp1-cluster
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

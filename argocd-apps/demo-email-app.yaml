@@ -1,0 +1,72 @@
+# demo-email：每天发一封固定格式邮件到 nvd11@163.com
+# ArgoCD 管「跑什么容器」，AWS Scheduler + GH Actions 管「什么时候跑」
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-email
+  namespace: argocd
+  labels:
+    domain: demo
+    type: batch
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nvd11/my-shared-helm-charts.git
+    path: charts/generic-batch-job
+    targetRevision: main
+    helm:
+      values: |
+        fullnameOverride: demo-email
+
+        # 时钟在外部：本地永不触发
+        suspend: true
+        schedule: "0 0 31 2 *"
+
+        concurrencyPolicy: Forbid
+        activeDeadlineSeconds: 300
+        backoffLimit: 1
+        ttlSecondsAfterFinished: 300
+
+        image:
+          repository: ghcr.io/nvd11/demo-email
+          tag: v0.1.0
+          digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+          pullPolicy: IfNotPresent
+
+        env:
+          - name: SMTP_HOST
+            value: "smtp.163.com"
+          - name: SMTP_PORT
+            value: "465"
+          - name: MAIL_FROM
+            value: "nvd11@163.com"
+          - name: SMTP_USER
+            value: "nvd11@163.com"
+          - name: MAIL_TO
+            value: "nvd11@163.com"
+          - name: JOB_NAME
+            value: "demo-email"
+          - name: DRY_RUN
+            value: "false"
+
+        envFrom:
+          - secretRef:
+              name: demo-email-secrets
+
+        nodeSelector:
+          kubernetes.io/hostname: "radxa-cubie-a7a"
+
+        resources:
+          requests:
+            cpu: "20m"
+            memory: "32Mi"
+          limits:
+            cpu: "100m"
+            memory: "64Mi"
+  destination:
+    name: tencent-dp1-cluster
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
