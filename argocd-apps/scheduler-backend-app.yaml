@@ -26,11 +26,11 @@ spec:
 
         resources:
           requests:
-            cpu: 20m
-            memory: 36Mi
+            cpu: 50m
+            memory: 48Mi
           limits:
-            cpu: 200m
-            memory: 64Mi
+            cpu: 500m
+            memory: 128Mi
 
         args:
           - "-Dquarkus.http.host=0.0.0.0"
@@ -82,12 +82,25 @@ spec:
               remoteRef:
                 key: scheduler-github-token
 
+        # 启动保护：Quarkus native 本体启动 <1s，但在 radxa 上受 0.5 核限制 + 冷页加载，
+        # 容器启动到监听 8080 实测可达 28s 且抖动大（曾 >48s）。
+        # 没有 startupProbe 时 liveness 只留 3s+3*15s=33s 预算，导致 7 天被 SIGKILL 2811 次。
+        startupProbe:
+          enabled: true
+          path: /live
+          port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 36   # 5s * 36 = 180s 启动预算，起不来才判定真故障
+
         livenessProbe:
           enabled: true
           path: /live
           port: 8080
-          initialDelaySeconds: 3
+          initialDelaySeconds: 15
           periodSeconds: 15
+          timeoutSeconds: 5
           failureThreshold: 3
 
         readinessProbe:
@@ -96,7 +109,10 @@ spec:
           port: 8080
           initialDelaySeconds: 3
           periodSeconds: 10
+          timeoutSeconds: 5
           failureThreshold: 3
+
+        terminationGracePeriodSeconds: 5
 
         service:
           type: ClusterIP
