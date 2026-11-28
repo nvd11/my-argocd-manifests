@@ -1,0 +1,73 @@
+# demo-email-java：每天 09:05 发一封固定格式邮件到 nvd11@163.com（Java 实现）
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-email-java
+  namespace: argocd
+  labels:
+    domain: demo
+    type: batch
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/nvd11/my-shared-helm-charts.git
+    path: charts/generic-batch-job
+    targetRevision: main
+    helm:
+      values: |
+        fullnameOverride: demo-email-java
+
+        # 时钟在外部：本地永不触发
+        suspend: true
+        schedule: "0 0 31 2 *"
+
+        concurrencyPolicy: Forbid
+        activeDeadlineSeconds: 300
+        backoffLimit: 1
+        ttlSecondsAfterFinished: 300
+
+        # JVM 启动 + 发信约 2~3 秒；内存给足 PermGen/堆
+        image:
+          repository: ghcr.io/nvd11/demo-email-java
+          tag: v0.1.0
+          digest: sha256:cc5d2c0674abe54e724cdee2fbd57e4df05b64261307e3b12267ef01213e452e
+          pullPolicy: IfNotPresent
+
+        env:
+          - name: SMTP_HOST
+            value: "smtp.163.com"
+          - name: SMTP_PORT
+            value: "465"
+          - name: MAIL_FROM
+            value: "nvd11@163.com"
+          - name: SMTP_USER
+            value: "nvd11@163.com"
+          - name: MAIL_TO
+            value: "nvd11@163.com"
+          - name: JOB_NAME
+            value: "demo-email-java"
+          - name: DRY_RUN
+            value: "false"
+
+        # 与 Python 版共用同一份 ExternalSecret（default/demo-email-secrets）
+        envFrom:
+          - secretRef:
+              name: demo-email-secrets
+
+        nodeSelector:
+          kubernetes.io/hostname: "radxa-cubie-a7a"
+
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "96Mi"
+          limits:
+            cpu: "300m"
+            memory: "192Mi"
+  destination:
+    name: tencent-dp1-cluster
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
